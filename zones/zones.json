@@ -1,0 +1,122 @@
+{
+    "site": {
+        "name": "Demo Factory",
+        "type": "factory",
+        "camera": "Camera_01"
+    },
+
+    "zones": [
+
+        {
+            "id": "zone_001",
+            "name": "Production Floor",
+
+            "points": [
+                [95, 120],
+                [1180, 120],
+                [1180, 650],
+                [95, 650]
+            ],
+
+            "color": [0, 255, 0],
+
+            "rules": {
+                "helmet_required": true,
+                "phone_allowed": false,
+                "loitering_allowed": false,
+                "running_allowed": false,
+                "smoking_allowed": false,
+                "restricted_access": false
+            },
+
+            "monitor": {
+                "fire": true,
+                "smoke": true
+            }
+        },
+
+        {
+            "id": "zone_002",
+            "name": "Office",
+
+            "points": [
+                [1220, 120],
+                [1820, 120],
+                [1820, 650],
+                [1220, 650]
+            ],
+
+            "color": [255, 0, 0],
+
+            "rules": {
+                "helmet_required": false,
+                "phone_allowed": true,
+                "loitering_allowed": false,
+                "running_allowed": false,
+                "smoking_allowed": false,
+                "restricted_access": false
+            },
+
+            "monitor": {
+                "fire": true,
+                "smoke": true
+            }
+        },
+
+        {
+            "id": "zone_003",
+            "name": "Parking",
+
+            "points": [
+                [95, 700],
+                [700, 1020],
+                [95, 1020]
+            ],
+
+            "color": [255, 255, 0],
+
+            "rules": {
+                "helmet_required": false,
+                "phone_allowed": true,
+                "loitering_allowed": true,
+                "running_allowed": true,
+                "smoking_allowed": false,
+                "restricted_access": false
+            },
+
+            "monitor": {
+                "fire": false,
+                "smoke": false
+            }
+        },
+
+        {
+            "id": "zone_004",
+            "name": "Restricted Area",
+
+            "points": [
+                [1450, 700],
+                [1850, 700],
+                [1850, 1020],
+                [1450, 1020]
+            ],
+
+            "color": [0, 0, 255],
+
+            "rules": {
+                "helmet_required": true,
+                "phone_allowed": false,
+                "loitering_allowed": false,
+                "running_allowed": false,
+                "smoking_allowed": false,
+                "restricted_access": true
+            },
+
+            "monitor": {
+                "fire": true,
+                "smoke": true
+            }
+        }
+
+    ]
+}
