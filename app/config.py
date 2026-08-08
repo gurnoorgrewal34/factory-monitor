@@ -1,14 +1,18 @@
 import os
 
-# ===============================
+##################################################
 # Project Root
-# ===============================
+##################################################
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
 
-# ===============================
-# Model
-# ===============================
+##################################################
+# Models
+##################################################
 
 MODEL_PATH = os.path.join(
     BASE_DIR,
@@ -16,20 +20,34 @@ MODEL_PATH = os.path.join(
     "yolo11n.pt"
 )
 
-# ===============================
+POSE_MODEL_PATH = os.path.join(
+    BASE_DIR,
+    "models",
+    "yolo11n-pose.pt"
+)
+
+##################################################
 # Video
-# ===============================
+##################################################
 
 VIDEO_PATH = os.path.join(
     BASE_DIR,
     "datasets",
     "raw_videos",
-    "fire3.mp4"
+    "testing_video.mp4"
 )
 
-# ===============================
+##################################################
+# Input Source
+##################################################
+
+USE_WEBCAM = False
+
+WEBCAM_INDEX = 0
+
+##################################################
 # YOLO Settings
-# ===============================
+##################################################
 
 CONFIDENCE = 0.40
 
@@ -39,27 +57,21 @@ SHOW_LABELS = True
 
 WINDOW_NAME = "Factory Monitoring System"
 
-# ===============================
-# Behaviour Settings
-# ===============================
+##################################################
+# Loitering
+##################################################
 
-LOITERING_TIME = 10        # 2 minutes
+LOITERING_TIME = 10          # Testing (Production: 20-30 sec)
+
+##################################################
+# Social Loitering
+##################################################
 
 SOCIAL_DISTANCE = 120        # pixels
 
-SOCIAL_TIME = 60            # 1 minute
+SOCIAL_TIME = 20             # seconds
 
-
-# -----------------------------------------
-# Social Loitering
-# -----------------------------------------
-
-SOCIAL_DISTANCE = 120      # pixels
-
-SOCIAL_TIME = 20           # seconds
-
-SOCIAL_SPEED = 25          # px/sec
-
+SOCIAL_SPEED = 25            # pixels/sec
 
 ##################################################
 # Phone Detection
@@ -72,26 +84,33 @@ PHONE_CONFIDENCE = 0.25
 PHONE_DISTANCE_THRESHOLD = 120
 
 ##################################################
-# Running Detection
+# Movement Thresholds (pixels/frame)
 ##################################################
 
-# Average speed (pixels/sec) above which a person is considered running
-RUNNING_SPEED = 80
-
-# Number of consecutive frames required
-RUNNING_FRAME_THRESHOLD = 8
-
-
-##################################################
-# Activity Detection
-##################################################
-
-# Average speed (pixels/sec)
 STANDING_SPEED = 5
 
 SLOW_WORK_SPEED = 25
 
-RUNNING_SPEED = 80
+RUNNING_SPEED = 12
 
-# Seconds before considering idle
-IDLE_TIME = 20
+##################################################
+# Behaviour Timers
+##################################################
+
+# Used for future attendance logic
+WAITING_TIME = 30
+
+# Standing without doing any work
+STANDING_WITHOUT_WORK_TIME = 8      # Testing (Production: 15-20)
+
+# Completely idle
+IDLE_TIME = 20                      # Testing (Change to 300 for production)
+
+# Long idle
+LONG_IDLE_TIME = 600                # 10 minutes
+
+##################################################
+# Running Detection
+##################################################
+
+RUNNING_FRAME_THRESHOLD = 8

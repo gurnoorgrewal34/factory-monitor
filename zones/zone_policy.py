@@ -24,7 +24,8 @@ class ZonePolicy:
 
             "loitering": "loitering_allowed",
 
-            "restricted": "restricted_access"
+            "restricted": "restricted_access",
+            "running": "running_allowed"
 
         }
 

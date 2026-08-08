@@ -9,6 +9,8 @@ from behaviours.running_behaviour import RunningBehaviour
 from behaviours.smoking_behaviour import SmokingBehaviour
 
 from behaviours.activity_behaviour import ActivityBehaviour
+from behaviours.pose_behaviour import PoseBehaviour
+from behaviours.idle_behaviour import IdleBehaviour
 
 from zones.zone_policy import ZonePolicy
 
@@ -29,6 +31,10 @@ class BehaviourEngine:
         
         self.fire = FireBehaviour()
         self.smoke = SmokeBehaviour()
+        self.pose = PoseBehaviour()
+        
+        self.idle = IdleBehaviour()
+    
         
     ####################################################
     # Individual Behaviours
@@ -67,7 +73,22 @@ class BehaviourEngine:
         ####################################################
 
         self.activity.check(person)
-    
+        ####################################################
+        # Idle Behaviour
+        ####################################################
+
+        alert = self.idle.check(person)
+
+        if alert is not None:
+            alerts.append(alert)
+            
+            
+        print(
+        f"BehaviourEngine -> "
+        f"ID={person['id']} | "
+        f"Status={person['status']} | "
+        f"Object={id(person)}"
+    )
         ####################################################
         # Running
         ####################################################

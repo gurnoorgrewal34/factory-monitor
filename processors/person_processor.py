@@ -68,12 +68,6 @@ class PersonProcessor:
 
             person["monitor"] = {}
 
-        ##################################################
-        # Behaviour Processing
-        ##################################################
-
-        alerts = self.behaviour.process(person)
-
-        ##################################################
+        alerts = []
 
         return person, alerts, draw_box

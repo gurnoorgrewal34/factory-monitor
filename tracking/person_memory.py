@@ -12,7 +12,7 @@ class PersonMemory:
     # Update Person Position
     # --------------------------------------------------
 
-    def update(self, track_id, center,box):
+    def update(self, track_id, center, box):
 
         current_time = time.time()
 
@@ -23,8 +23,62 @@ class PersonMemory:
 
                 # Identity
                 "id": track_id,
-                
+
                 "box": box,
+
+                ##################################################
+                # Pose Information
+                ##################################################
+
+                # Raw keypoints from YOLO
+                "pose": None,
+                "activity_state": "Unknown",
+
+                ##################################################
+                # Idle Behaviour
+                ##################################################
+
+                "stationary_since": None,
+                "idle_time": 0.0,
+                "idle_alerted": False,
+
+                "standing_alerted": False,
+                ##################################################
+                # Pose
+                ##################################################
+                
+                "pose_state": "UNKNOWN",
+
+                # Motion state
+                "motion_state": "UNKNOWN",
+
+                # Angles
+                "torso_angle": 0.0,
+                "head_angle": 0.0,
+
+                "left_arm_angle": 0.0,
+                "right_arm_angle": 0.0,
+
+                "left_knee_angle": 0.0,
+                "right_knee_angle": 0.0,
+                
+                "left_hip_angle": 0.0,
+                "right_hip_angle": 0.0,
+
+                "left_elbow_angle": 0.0,
+                "right_elbow_angle": 0.0,
+
+                # Confidence
+                "pose_confidence": 0.0,
+
+                # Hand movement
+                "previous_left_wrist": None,
+                "previous_right_wrist": None,
+
+                "left_hand_speed": 0.0,
+                "right_hand_speed": 0.0,
+                
+                "last_pose_time": None,
 
                 # Time
                 "first_seen": current_time,
@@ -49,18 +103,23 @@ class PersonMemory:
 
                 # Behaviour
                 "status": "Normal",
+                "activity": "Normal",
 
                 # Behaviour Flags
-                "loitering_alerted": False,
-                
+                "loitering_alerted": False, 
+
+                ##################################################
                 # Phone Behaviour
+                ##################################################
+
                 "phone_frames": 0,
                 "phone_alerted": False,
                 "phone_detected": False,
-                
-                
-                
+
+                ##################################################
                 # Running Behaviour
+                ##################################################
+
                 "avg_speed": 0.0,
                 "running_frames": 0,
                 "running_alerted": False
@@ -92,20 +151,33 @@ class PersonMemory:
 
             speed = 0
 
+        print(
+            f"SPEED CALC -> "
+            f"ID={track_id} | "
+            f"Center={center} | "
+            f"Previous={previous} | "
+            f"Distance={distance:.2f} | "
+            f"dt={dt:.4f} | "
+            f"RawSpeed={speed:.2f}"
+        )
+
         person["distance"] += distance
 
         person["speed"] = speed
 
         # Moving average (reduces noisy speed spikes)
         person["avg_speed"] = (
+
             0.7 * person["avg_speed"]
+
             + 0.3 * speed
+
         )
 
         person["previous_center"] = previous
 
         person["current_center"] = center
-        
+
         person["box"] = box
 
         person["frames"] += 1
@@ -169,3 +241,9 @@ class PersonMemory:
     def all_people(self):
 
         return self.people
+    
+    
+    
+    def debug(self):
+
+        print("CURRENT MEMORY IDS:", list(self.people.keys()))

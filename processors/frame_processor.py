@@ -3,6 +3,11 @@ from detectors.phone_detector import PhoneDetector
 from detectors.fire_detector import FireDetector
 from detectors.smoking_detector import SmokingDetector
 
+from detectors.pose_detector import PoseDetector
+from processors.pose_processor import PoseProcessor
+from processors.pose_matcher import PoseMatcher
+
+
 class FrameProcessor:
 
     def __init__(
@@ -39,19 +44,34 @@ class FrameProcessor:
 
         self.behaviour = behaviour
 
+        ##################################################
+        # Detectors
+        ##################################################
+
         self.helmet_detector = HelmetDetector()
 
         self.phone_detector = PhoneDetector()
-        
+
         self.fire_detector = FireDetector()
+
         self.smoking_detector = SmokingDetector()
+
+        self.pose_detector = PoseDetector()
+        
+        self.pose_processor = PoseProcessor()
+
+        ##################################################
+        # Pose Matcher
+        ##################################################
+
+        self.pose_matcher = PoseMatcher()
 
     ##################################################
 
     def process(self, frame):
 
         ##################################################
-        # Person Detection
+        # Person Detection & Tracking
         ##################################################
 
         results = self.tracker.track(frame)
@@ -60,19 +80,27 @@ class FrameProcessor:
 
         boxes = result.boxes
 
-        annotated = result.plot()
+        # annotated = result.plot()   do it agiain after debugging 
+        annotated = frame.copy()
 
         ##################################################
-        # Object Detectors
+        # Object Detection
         ##################################################
 
         helmet_results = self.helmet_detector.detect(frame)
 
         phone_results = self.phone_detector.detect(frame)
-        
+
         fire_results = self.fire_detector.detect(frame)
-        
+
         smoking_results = self.smoking_detector.detect(frame)
+
+        ##################################################
+        # Pose Detection
+        ##################################################
+
+        pose_results = self.pose_detector.detect(frame)
+
         ##################################################
         # Draw Zones
         ##################################################
@@ -107,14 +135,85 @@ class FrameProcessor:
 
                         print(alert)
 
+            ##################################################
+            # Match Pose to Tracked Persons
+            ##################################################
+
+            self.pose_matcher.match(
+
+                self.person_processor.memory.all_people(),
+
+                pose_results[0]
+
+            )
+            
+            
+            self.pose_processor.process(
+                self.person_processor.memory.all_people()
+            )
+
+            ##################################################
+            # Pose Behaviour
+            ##################################################
+            
+            for person in self.person_processor.memory.all_people().values():
+
+                self.behaviour.pose.check(person)
+            
+            
+            ##################################################
+            # Activity / Loitering / Running / Restricted
+            ##################################################
+            self.person_processor.memory.debug()
+            for person in self.person_processor.memory.all_people().values():
+
+                alerts = self.behaviour.process(person)
+
+                if alerts:
+
+                    self.alert_overlay.update(alerts)
+
+                    for alert in alerts:
+
+                        print(alert)
+            
+            
+            
+            
+            ##################################################
+            # Draw Person Information
+            ##################################################
+
+            for track_id, box in zip(ids, xyxy):
+
+                # person = self.person_processor.memory.get(track_id)
+
+                # annotated = self.drawing_processor.draw_person(
+
+                #     annotated,
+
+                #     box,
+
+                #     person
+
+                # )
+                
+                 #done temporarily 
+                 
+                person = self.person_processor.memory.get(track_id)
+
+                print(
+                    f"DRAW -> "
+                    f"Track={track_id} | "
+                    f"MemoryID={person['id']} | "
+                    f"Status={person['status']} | "
+                    f"Box={box}"
+                )
+
                 annotated = self.drawing_processor.draw_person(
-
                     annotated,
-
-                    draw_box,
-
+                    box,
                     person
-
                 )
 
         ##################################################
@@ -156,8 +255,7 @@ class FrameProcessor:
             for alert in phone_alerts:
 
                 print(alert)
-                
-        
+
         ##################################################
         # Smoking Behaviour
         ##################################################
@@ -177,9 +275,7 @@ class FrameProcessor:
             for alert in smoking_alerts:
 
                 print(alert)
-                
-                
-                
+
         ##################################################
         # Fire Behaviour
         ##################################################
@@ -196,9 +292,8 @@ class FrameProcessor:
 
             for alert in fire_alerts:
 
-                print(alert)        
+                print(alert)
 
-        
         ##################################################
         # Smoke Behaviour
         ##################################################
@@ -216,9 +311,9 @@ class FrameProcessor:
             for alert in smoke_alerts:
 
                 print(alert)
-        
+
         ##################################################
-        # Group Behaviours
+        # Group Behaviour
         ##################################################
 
         group_alerts = self.group_processor.process()
@@ -232,11 +327,9 @@ class FrameProcessor:
                 print(alert)
 
         ##################################################
-        # Draw Alert Overlay
+        # Alert Overlay
         ##################################################
 
         annotated = self.alert_overlay.draw(annotated)
 
         return annotated
-    
-       
