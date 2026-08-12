@@ -1,5 +1,4 @@
 from alerts.alert_manager import AlertManager
-from utils.geometry import calculate_iou
 
 
 class PhoneBehaviour:
@@ -11,22 +10,38 @@ class PhoneBehaviour:
         # Number of consecutive frames required
         self.FRAME_THRESHOLD = 20
 
-    ####################################################
+        # Minimum confidence required from the phone detector
+        self.PHONE_CONFIDENCE = 0.35
+
+        # Expand person bounding box slightly when matching phone
+        # This helps when the phone is near the hand/body boundary.
+        self.PERSON_BOX_EXPANSION = 0.15
+
+        # Maximum normalized distance allowed when phone is
+        # just outside the person's bounding box.
+        self.MAX_CENTER_DISTANCE = 0.35
+
+    # --------------------------------------------------
+    # Check Phone Behaviour
+    # --------------------------------------------------
 
     def check(self, people, phone_results):
 
         alerts = []
 
-        # Reset detection flag
+        # ----------------------------------------------
+        # Reset current-frame phone detection
+        # ----------------------------------------------
+
         for person in people.values():
 
             person["phone_detected"] = False
 
-        ####################################################
-        # No detections
-        ####################################################
+        # ----------------------------------------------
+        # No phone detection result
+        # ----------------------------------------------
 
-        if len(phone_results) == 0:
+        if not phone_results:
 
             self.reset_people(people)
 
@@ -34,15 +49,15 @@ class PhoneBehaviour:
 
         result = phone_results[0]
 
-        if result.boxes is None:
+        if result.boxes is None or len(result.boxes) == 0:
 
             self.reset_people(people)
 
             return alerts
 
-        ####################################################
-        # Process every phone detection
-        ####################################################
+        # ----------------------------------------------
+        # Process phone detections
+        # ----------------------------------------------
 
         for det in result.boxes:
 
@@ -54,59 +69,188 @@ class PhoneBehaviour:
 
                 continue
 
-            px1, py1, px2, py2 = map(int, det.xyxy[0])
+            # ------------------------------------------
+            # Confidence
+            # ------------------------------------------
 
-            best_person = None
-            best_iou = 0.0
+            confidence = float(det.conf[0])
 
-            ####################################################
-            # IoU Matching
-            ####################################################
-
-            for person in people.values():
-
-                iou = calculate_iou(
-
-                    person["box"],
-
-                    [px1, py1, px2, py2]
-
-                )
-
-                if iou > best_iou:
-
-                    best_iou = iou
-                    best_person = person
-
-            ####################################################
-            # Ignore weak IoU matches
-            ####################################################
-
-            if best_person is None or best_iou < 0.10:
+            if confidence < self.PHONE_CONFIDENCE:
 
                 continue
 
-            ####################################################
-            # Zone Policy
-            ####################################################
+            # ------------------------------------------
+            # Phone bounding box
+            # ------------------------------------------
 
-            rules = best_person.get("zone_rules", {})
+            px1, py1, px2, py2 = map(
+                int,
+                det.xyxy[0]
+            )
 
-            # If phone usage is allowed in this zone,
-            # ignore this detection completely.
+            phone_cx = (px1 + px2) / 2.0
+            phone_cy = (py1 + py2) / 2.0
+
+            best_person = None
+            best_score = 0.0
+
+            # ------------------------------------------
+            # Match phone to person
+            # ------------------------------------------
+
+            for person in people.values():
+
+                person_box = person.get("box")
+
+                if not person_box:
+
+                    continue
+
+                x1, y1, x2, y2 = map(
+                    float,
+                    person_box
+                )
+
+                person_width = max(
+                    x2 - x1,
+                    1.0
+                )
+
+                person_height = max(
+                    y2 - y1,
+                    1.0
+                )
+
+                # --------------------------------------
+                # Expanded person box
+                # --------------------------------------
+
+                expand_x = person_width * self.PERSON_BOX_EXPANSION
+                expand_y = person_height * self.PERSON_BOX_EXPANSION
+
+                ex1 = x1 - expand_x
+                ey1 = y1 - expand_y
+
+                ex2 = x2 + expand_x
+                ey2 = y2 + expand_y
+
+                # --------------------------------------
+                # Center inside normal person box
+                # --------------------------------------
+
+                inside_normal = (
+
+                    x1 <= phone_cx <= x2
+
+                    and
+
+                    y1 <= phone_cy <= y2
+
+                )
+
+                # --------------------------------------
+                # Center inside expanded person box
+                # --------------------------------------
+
+                inside_expanded = (
+
+                    ex1 <= phone_cx <= ex2
+
+                    and
+
+                    ey1 <= phone_cy <= ey2
+
+                )
+
+                # --------------------------------------
+                # Normalized distance
+                # --------------------------------------
+
+                person_cx = (x1 + x2) / 2.0
+                person_cy = (y1 + y2) / 2.0
+
+                dx = abs(phone_cx - person_cx) / person_width
+                dy = abs(phone_cy - person_cy) / person_height
+
+                distance = (dx * dx + dy * dy) ** 0.5
+
+                # --------------------------------------
+                # Matching score
+                # --------------------------------------
+
+                score = 0.0
+
+                if inside_normal:
+
+                    # Strongest possible association
+                    score = 1.0
+
+                elif inside_expanded:
+
+                    # Phone slightly outside body box,
+                    # probably near hand.
+                    score = 0.85
+
+                elif distance <= self.MAX_CENTER_DISTANCE:
+
+                    # Nearby phone.
+                    score = 0.60
+
+                # --------------------------------------
+                # Confidence contributes only after
+                # spatial association.
+                # --------------------------------------
+
+                score *= confidence
+
+                # --------------------------------------
+                # Keep best person
+                # --------------------------------------
+
+                if score > best_score:
+
+                    best_score = score
+                    best_person = person
+
+            # ------------------------------------------
+            # No valid person
+            # ------------------------------------------
+
+            if best_person is None:
+
+                continue
+
+            # ------------------------------------------
+            # Require reasonable association
+            # ------------------------------------------
+
+            if best_score < 0.30:
+
+                continue
+
+            # ------------------------------------------
+            # Zone policy
+            # ------------------------------------------
+
+            rules = best_person.get(
+                "zone_rules",
+                {}
+            )
+
+            # Phone allowed in this zone
             if rules.get("phone_allowed", True):
 
                 continue
 
-            ####################################################
+            # ------------------------------------------
             # Valid phone detection
-            ####################################################
+            # ------------------------------------------
 
             best_person["phone_detected"] = True
 
-        ####################################################
-        # Update frame counters
-        ####################################################
+        # ----------------------------------------------
+        # Update phone counters
+        # ----------------------------------------------
 
         for person in people.values():
 
@@ -121,31 +265,28 @@ class PhoneBehaviour:
                 person["phone_alerted"] = False
 
                 self.alert_manager.clear(
-
                     person["id"],
-
                     "Phone Usage"
-
                 )
 
-            ####################################################
+            # ------------------------------------------
             # Raise alert after threshold
-            ####################################################
+            # ------------------------------------------
 
             if (
 
-                person["phone_frames"] >= self.FRAME_THRESHOLD
+                person["phone_frames"]
+                >= self.FRAME_THRESHOLD
 
-                and not person["phone_alerted"]
+                and
+
+                not person["phone_alerted"]
 
             ):
 
                 if self.alert_manager.should_alert(
-
                     person["id"],
-
                     "Phone Usage"
-
                 ):
 
                     alerts.append({
@@ -164,7 +305,9 @@ class PhoneBehaviour:
 
         return alerts
 
-    ####################################################
+    # --------------------------------------------------
+    # Reset Phone State
+    # --------------------------------------------------
 
     def reset_people(self, people):
 
@@ -174,10 +317,9 @@ class PhoneBehaviour:
 
             person["phone_alerted"] = False
 
+            person["phone_detected"] = False
+
             self.alert_manager.clear(
-
                 person["id"],
-
                 "Phone Usage"
-
             )

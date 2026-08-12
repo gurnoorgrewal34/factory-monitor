@@ -28,6 +28,11 @@ class PoseProcessor:
                 continue
 
             kp = person["pose"]
+            print(
+                "POSE SAMPLE ->",
+                kp[9],
+                kp[10]
+            )
             
             ##################################################
             # Hand Movement

@@ -14,6 +14,12 @@ from behaviours.idle_behaviour import IdleBehaviour
 
 from zones.zone_policy import ZonePolicy
 
+from behaviours.group_behaviour import GroupBehaviour
+from behaviours.group_standing import GroupStandingBehaviour
+
+
+from app.config import RUNNING_ENABLED
+
 class BehaviourEngine:
 
     def __init__(self, zone_engine):
@@ -34,7 +40,8 @@ class BehaviourEngine:
         self.pose = PoseBehaviour()
         
         self.idle = IdleBehaviour()
-    
+        self.group = GroupBehaviour()
+        self.group_standing = GroupStandingBehaviour()
         
     ####################################################
     # Individual Behaviours
@@ -73,6 +80,7 @@ class BehaviourEngine:
         ####################################################
 
         self.activity.check(person)
+        
         ####################################################
         # Idle Behaviour
         ####################################################
@@ -89,18 +97,19 @@ class BehaviourEngine:
         f"Status={person['status']} | "
         f"Object={id(person)}"
     )
+        
         ####################################################
         # Running
         ####################################################
+        if RUNNING_ENABLED:
 
-        alert = self.running.check(person)
+            alert = self.running.check(person)
 
-        if alert is not None:
+            if alert is not None:
+                 alerts.append(alert)
+            return alerts
 
-            alerts.append(alert)
-            
         return alerts
-            
 
     ####################################################
     # Group Behaviours
@@ -110,14 +119,57 @@ class BehaviourEngine:
 
         alerts = []
 
-        alerts.extend(
+        # ======================================================
+        # GROUP CLASSIFICATION
+        #
+        # This ONLY classifies the relationship between people.
+        #
+        # It does NOT generate alerts.
+        # ======================================================
 
-            self.social.check(people)
+        self.group.process(people)
 
+        # ======================================================
+        # PEOPLE STANDING IN GROUP
+        #
+        # This is an independent alert behaviour.
+        #
+        # It does NOT modify:
+        # - Idle
+        # - Standing Without Working
+        # - Running
+        # - Activity
+        # - Social Loitering
+        # ======================================================
+
+        group_alerts = self.group_standing.check(
+            people
         )
 
+        if group_alerts:
+
+            alerts.extend(
+                group_alerts
+            )
+
+        # ======================================================
+        # SOCIAL LOITERING
+        #
+        # Completely independent from group standing.
+        # ======================================================
+
+        social_alerts = self.social.check(
+            people
+        )
+
+        if social_alerts:
+
+            alerts.extend(
+                social_alerts
+            )
+
         return alerts
-    
+        
     
     ####################################################
     # Helmet Behaviour

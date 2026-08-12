@@ -1,9 +1,18 @@
+import os
 import cv2
+import time
+
+from inputs.camera_source import CameraSource
+
+from app.orchestrator import Orchestrator
 
 from tracking.tracker import PersonTracker
 from tracking.person_memory import PersonMemory
+
 from processors.group_processor import GroupProcessor
 from processors.frame_processor import FrameProcessor
+from processors.person_processor import PersonProcessor
+from processors.drawing_processor import DrawingProcessor
 
 from app.behaviour_engine import BehaviourEngine
 from app.config import *
@@ -13,23 +22,44 @@ from zones.zone_drawer import ZoneDrawer
 
 from alerts.alert_overlay import AlertOverlay
 
-from processors.person_processor import PersonProcessor
-from processors.drawing_processor import DrawingProcessor
-
 
 # ==================================================
 # SYSTEM INITIALIZATION
 # ==================================================
 
+print()
+print("========================================")
+print("FACTORY MONITORING SYSTEM")
+print("========================================")
+
+
+orchestrator = Orchestrator()
+
+
+
 tracker = PersonTracker()
+
+
 memory = PersonMemory()
 
-zone_engine = ZoneEngine("zones/zones.json")
-zone_drawer = ZoneDrawer(zone_engine)
 
-behaviour = BehaviourEngine(zone_engine)
+zone_engine = ZoneEngine(
+    "zones/zones.json"
+)
+
+
+zone_drawer = ZoneDrawer(
+    zone_engine
+)
+
+
+behaviour = BehaviourEngine(
+    zone_engine
+)
+
 
 alert_overlay = AlertOverlay()
+
 
 person_processor = PersonProcessor(
     memory,
@@ -37,12 +67,15 @@ person_processor = PersonProcessor(
     behaviour
 )
 
+
 drawing_processor = DrawingProcessor()
+
 
 group_processor = GroupProcessor(
     memory,
     behaviour
 )
+
 
 frame_processor = FrameProcessor(
     tracker,
@@ -51,96 +84,303 @@ frame_processor = FrameProcessor(
     drawing_processor,
     group_processor,
     alert_overlay,
-    behaviour
+    behaviour,
+    orchestrator
 )
 
 
 # ==================================================
-# VIDEO INPUT
+# INPUT SOURCE
 # ==================================================
 
+camera = CameraSource(
 
-if USE_WEBCAM:
+    source_type=INPUT_SOURCE,
 
-    print("Starting live webcam...")
+    video_path=VIDEO_PATH,
 
-    cap = cv2.VideoCapture(WEBCAM_INDEX)
+    webcam_index=WEBCAM_INDEX,
 
-else:
+    cctv_url=CCTV_URL
 
-    print("Starting video...")
-
-    cap = cv2.VideoCapture(VIDEO_PATH)
+)
 
 
-if not cap.isOpened():
+# ==================================================
+# READ FIRST FRAME
+#
+# This gives us the actual frame dimensions.
+# This is especially useful for CCTV streams.
+# ==================================================
 
-    print("Unable to open input source.")
+ret, first_frame = camera.read()
+
+
+if not ret:
+
+    print(
+        "ERROR: Could not read first frame."
+    )
+
+    camera.release()
 
     exit()
 
+
+height, width = first_frame.shape[:2]
+
+
 # ==================================================
-# VIDEO OUTPUT
+# FPS
 # ==================================================
 
-fps = cap.get(cv2.CAP_PROP_FPS)
+fps = camera.get_fps()
+
 
 if fps <= 0:
+
     fps = 30.0
-
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-OUTPUT_PATH = "output_social.mp4"
-
-fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-
-writer = cv2.VideoWriter(
-    OUTPUT_PATH,
-    fourcc,
-    fps,
-    (width, height)
-)
-
-if not writer.isOpened():
-    print("ERROR: Could not create output video.")
-    cap.release()
-    exit()
-
-
-print("========================================")
-print("INPUT VIDEO")
-print(VIDEO_PATH)
-print("----------------------------------------")
-print("OUTPUT VIDEO")
-print(OUTPUT_PATH)
-print("----------------------------------------")
-print(f"Resolution : {width} x {height}")
-print(f"FPS        : {fps}")
-print("========================================")
 
 
 # ==================================================
-# PROCESS VIDEO
+# OUTPUT DIRECTORY
+# ==================================================
+
+OUTPUT_DIR = os.path.join(
+    BASE_DIR,
+    "outputs"
+)
+
+
+os.makedirs(
+    OUTPUT_DIR,
+    exist_ok=True
+)
+
+
+# ==================================================
+# OUTPUT VIDEO PATH
+# ==================================================
+
+OUTPUT_PATH = os.path.join(
+    OUTPUT_DIR,
+    "op120826.mp4"
+)
+
+
+# ==================================================
+# VIDEO WRITER
+# ==================================================
+
+fourcc = cv2.VideoWriter_fourcc(
+    *"mp4v"
+)
+
+
+writer = cv2.VideoWriter(
+
+    OUTPUT_PATH,
+
+    fourcc,
+
+    fps,
+
+    (width, height)
+
+)
+
+
+if not writer.isOpened():
+
+    print(
+        "ERROR: Could not create output video."
+    )
+
+    camera.release()
+
+    exit()
+
+
+# ==================================================
+# INFORMATION
+# ==================================================
+
+print()
+print("========================================")
+print("INPUT CONFIGURATION")
+print("========================================")
+
+print(
+    f"Source Type : {INPUT_SOURCE}"
+)
+
+if INPUT_SOURCE == "video":
+
+    print(
+        f"Video Path  : {VIDEO_PATH}"
+    )
+
+elif INPUT_SOURCE == "webcam":
+
+    print(
+        f"Webcam      : {WEBCAM_INDEX}"
+    )
+
+elif INPUT_SOURCE == "cctv":
+
+    print(
+        "CCTV / RTSP  : CONFIGURED"
+    )
+
+
+print("----------------------------------------")
+
+print(
+    f"Resolution  : {width} x {height}"
+)
+
+print(
+    f"FPS         : {fps}"
+)
+
+print("----------------------------------------")
+
+print(
+    "Output Video:"
+)
+
+print(
+    OUTPUT_PATH
+)
+
+print("========================================")
+print()
+
+
+# ==================================================
+# PROCESS FIRST FRAME
+#
+# We already read this frame while determining
+# the dimensions, so process it normally.
+# ==================================================
+
+annotated = frame_processor.process(
+    first_frame
+)
+
+
+writer.write(
+    annotated
+)
+
+
+cv2.imshow(
+    WINDOW_NAME,
+    annotated
+)
+
+
+if cv2.waitKey(1) & 0xFF == ord("q"):
+
+    camera.release()
+
+    writer.release()
+
+    cv2.destroyAllWindows()
+
+    exit()
+
+
+# ==================================================
+# PROCESS REMAINING FRAMES
 # ==================================================
 
 while True:
 
-    ret, frame = cap.read()
+    ret, frame = camera.read()
+
+
+    # ------------------------------------------------
+    # FRAME READ FAILED
+    # ------------------------------------------------
 
     if not ret:
+
+        # --------------------------------------------
+        # CCTV
+        #
+        # Try reconnecting instead of immediately
+        # shutting down the monitoring system.
+        # --------------------------------------------
+
+        if INPUT_SOURCE == "cctv":
+
+            print(
+                "CCTV -> Frame read failed."
+            )
+
+            print(
+                "CCTV -> Trying to reconnect..."
+            )
+
+
+            if camera.reconnect():
+
+                print(
+                    "CCTV -> Reconnected successfully."
+                )
+
+                continue
+
+
+            else:
+
+                print(
+                    "CCTV -> Reconnect failed."
+                )
+
+                time.sleep(2)
+
+                continue
+
+
+        # --------------------------------------------
+        # VIDEO / WEBCAM
+        # --------------------------------------------
+
         break
 
-    # Run complete pipeline
-    annotated = frame_processor.process(frame)
 
-    # Save processed frame
-    writer.write(annotated)
+    # ==================================================
+    # RUN COMPLETE PIPELINE
+    # ==================================================
 
-    # Optional live display
-    cv2.imshow(WINDOW_NAME, annotated)
+    annotated = frame_processor.process(
+        frame
+    )
+
+
+    # ==================================================
+    # SAVE PROCESSED FRAME
+    # ==================================================
+
+    writer.write(
+        annotated
+    )
+
+
+    # ==================================================
+    # OPTIONAL LIVE DISPLAY
+    # ==================================================
+
+    cv2.imshow(
+        WINDOW_NAME,
+        annotated
+    )
+
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
+
         break
 
 
@@ -148,12 +388,35 @@ while True:
 # CLEANUP
 # ==================================================
 
-cap.release()
+camera.release()
+
 writer.release()
+
 cv2.destroyAllWindows()
 
+
+# ==================================================
+# COMPLETE
+# ==================================================
+
 print()
-print("========================================")
-print("OUTPUT VIDEO CREATED")
-print(OUTPUT_PATH)
-print("========================================")
+
+print(
+    "========================================"
+)
+
+print(
+    "MONITORING SESSION COMPLETE"
+)
+
+print(
+    "OUTPUT VIDEO CREATED"
+)
+
+print(
+    OUTPUT_PATH
+)
+
+print(
+    "========================================"
+)

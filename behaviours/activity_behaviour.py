@@ -1,11 +1,8 @@
-from app.config import RUNNING_SPEED
-
-
 class ActivityBehaviour:
 
     def check(self, person):
 
-        speed = person["avg_speed"]
+        speed = float(person.get("avg_speed", 0.0))
         pose = person.get("pose_state", "Unknown")
 
         print(
@@ -16,56 +13,32 @@ class ActivityBehaviour:
         )
 
         ####################################################
-        # Running
+        # IMPORTANT:
+        # Running is NOT decided here.
+        #
+        # RunningBehaviour is the ONLY component allowed
+        # to set status/activity to Running.
         ####################################################
 
-        if speed >= RUNNING_SPEED:
-
-            person["status"] = "Running"
-            person["activity"] = "Running"
-
-        ####################################################
-        # Sitting
-        ####################################################
-
-        elif pose == "Sitting":
+        if pose == "Sitting":
 
             person["status"] = "Sitting"
             person["activity"] = "Sitting"
-
-        ####################################################
-        # Bending
-        ####################################################
 
         elif pose == "Bending":
 
             person["status"] = "Bending"
             person["activity"] = "Bending"
 
-        ####################################################
-        # Standing
-        ####################################################
-
         elif pose == "Standing":
-
-            # Let IdleBehaviour decide whether this person
-            # is standing, standing without working, or idle.
 
             person["status"] = "Standing"
             person["activity"] = "Standing"
-
-        ####################################################
-        # Unknown
-        ####################################################
 
         else:
 
             person["status"] = "Unknown"
             person["activity"] = "Unknown"
-
-        ####################################################
-        # Debug
-        ####################################################
 
         print(
             f"ACTIVITY -> "

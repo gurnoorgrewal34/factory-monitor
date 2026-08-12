@@ -1,7 +1,7 @@
 import os
 
 ##################################################
-# Project Root
+# PROJECT ROOT
 ##################################################
 
 BASE_DIR = os.path.dirname(
@@ -10,8 +10,9 @@ BASE_DIR = os.path.dirname(
     )
 )
 
+
 ##################################################
-# Models
+# MODELS
 ##################################################
 
 MODEL_PATH = os.path.join(
@@ -26,27 +27,68 @@ POSE_MODEL_PATH = os.path.join(
     "yolo11n-pose.pt"
 )
 
+
 ##################################################
-# Video
+# INPUT SOURCE
+#
+# Supported:
+#
+# "video"  -> prerecorded video
+# "webcam" -> local webcam
+# "cctv"   -> CCTV / RTSP stream
+#
+##################################################
+
+INPUT_SOURCE = "video"
+
+
+##################################################
+# VIDEO FILE
+#
+# Used only when:
+#
+# INPUT_SOURCE = "video"
+#
 ##################################################
 
 VIDEO_PATH = os.path.join(
     BASE_DIR,
     "datasets",
     "raw_videos",
-    "testing_video.mp4"
+    "run_test.mp4"
 )
 
-##################################################
-# Input Source
-##################################################
 
-USE_WEBCAM = False
+##################################################
+# WEBCAM
+#
+# Used only when:
+#
+# INPUT_SOURCE = "webcam"
+#
+##################################################
 
 WEBCAM_INDEX = 0
 
+
 ##################################################
-# YOLO Settings
+# CCTV / RTSP
+#
+# Used only when:
+#
+# INPUT_SOURCE = "cctv"
+#
+# Example:
+#
+# rtsp://username:password@192.168.1.100:554/stream
+#
+##################################################
+
+CCTV_URL = ""
+
+
+##################################################
+# YOLO SETTINGS
 ##################################################
 
 CONFIDENCE = 0.40
@@ -57,24 +99,27 @@ SHOW_LABELS = True
 
 WINDOW_NAME = "Factory Monitoring System"
 
-##################################################
-# Loitering
-##################################################
-
-LOITERING_TIME = 10          # Testing (Production: 20-30 sec)
 
 ##################################################
-# Social Loitering
+# LOITERING
 ##################################################
 
-SOCIAL_DISTANCE = 120        # pixels
+LOITERING_TIME = 10
 
-SOCIAL_TIME = 20             # seconds
-
-SOCIAL_SPEED = 25            # pixels/sec
 
 ##################################################
-# Phone Detection
+# SOCIAL LOITERING
+##################################################
+
+SOCIAL_DISTANCE = 120
+
+SOCIAL_TIME = 30
+
+SOCIAL_SPEED = 25
+
+
+##################################################
+# PHONE DETECTION
 ##################################################
 
 PHONE_CLASS_ID = 67
@@ -83,8 +128,9 @@ PHONE_CONFIDENCE = 0.25
 
 PHONE_DISTANCE_THRESHOLD = 120
 
+
 ##################################################
-# Movement Thresholds (pixels/frame)
+# MOVEMENT THRESHOLDS
 ##################################################
 
 STANDING_SPEED = 5
@@ -93,24 +139,48 @@ SLOW_WORK_SPEED = 25
 
 RUNNING_SPEED = 12
 
+
 ##################################################
-# Behaviour Timers
+# BEHAVIOUR TIMERS
 ##################################################
 
-# Used for future attendance logic
 WAITING_TIME = 30
 
-# Standing without doing any work
-STANDING_WITHOUT_WORK_TIME = 8      # Testing (Production: 15-20)
+STANDING_WITHOUT_WORK_TIME = 20
 
-# Completely idle
-IDLE_TIME = 20                      # Testing (Change to 300 for production)
+IDLE_TIME = 200
 
-# Long idle
-LONG_IDLE_TIME = 600                # 10 minutes
+LONG_IDLE_TIME = 600
+
 
 ##################################################
-# Running Detection
+# RUNNING DETECTION
 ##################################################
-
+RUNNING_MOTION_THRESHOLD = 0.18
 RUNNING_FRAME_THRESHOLD = 8
+
+RUNNING_ENABLED = True
+
+
+##################################################
+# FIRE / SMOKE DETECTION
+##################################################
+
+FIRE_CONFIDENCE = 0.20
+
+FIRE_BEHAVIOUR_CONFIDENCE = 0.40
+
+FIRE_FRAME_THRESHOLD = 3
+
+SMOKE_CONFIDENCE = 0.40
+
+
+##################################################
+# GROUP STANDING
+##################################################
+
+GROUP_DISTANCE = 120
+
+GROUP_TIME = 5
+
+GROUP_SPEED = 8

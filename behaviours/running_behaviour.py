@@ -1,155 +1,203 @@
 from alerts.alert_manager import AlertManager
-from app.config import RUNNING_SPEED, RUNNING_FRAME_THRESHOLD
+from app.config import (
+    RUNNING_FRAME_THRESHOLD,
+    RUNNING_MOTION_THRESHOLD,
+)
 
 
 class RunningBehaviour:
-    """
-    Detects sustained running and raises one alert per running episode.
-
-    Debug output is placed at the actual decision points:
-    zone policy -> speed decision -> frame counter -> confirmation -> alert.
-    """
 
     def __init__(self):
+
         self.alert_manager = AlertManager()
 
     def check(self, person):
+
         person_id = person["id"]
-        speed = float(person.get("speed", 0.0))
-        avg_speed = float(person.get("avg_speed", 0.0))
-        running_frames = int(person.get("running_frames", 0))
-        running_alerted = bool(person.get("running_alerted", False))
+
+        motion_speed = float(
+            person.get("motion_speed", 0.0)
+        )
+
+        avg_motion_speed = float(
+            person.get("avg_motion_speed", 0.0)
+        )
+
+        running_frames = int(
+            person.get("running_frames", 0)
+        )
+
+        running_alerted = bool(
+            person.get("running_alerted", False)
+        )
 
         print(
-            f"RUNNING DEBUG -> ID={person_id} | "
-            f"Speed={speed:.2f} | AvgSpeed={avg_speed:.2f} | "
+            f"RUNNING DEBUG -> "
+            f"ID={person_id} | "
+            f"Motion={motion_speed:.3f} | "
+            f"AvgMotion={avg_motion_speed:.3f} | "
             f"Frames={running_frames}/{RUNNING_FRAME_THRESHOLD} | "
             f"Alerted={running_alerted}"
         )
 
-        # --------------------------------------------------
-        # Zone Policy
-        # --------------------------------------------------
-        rules = person.get("zone_rules") or {}
-        running_allowed = rules.get("running_allowed", False)
+        # ==================================================
+        # ZONE POLICY
+        # ==================================================
 
-        print(
-            f"RUNNING ZONE DEBUG -> ID={person_id} | "
-            f"Zone={person.get('zone')} | "
-            f"RunningAllowed={running_allowed}"
+        rules = person.get("zone_rules") or {}
+
+        running_allowed = rules.get(
+            "running_allowed",
+            False
         )
 
-        if running_allowed is True:
-            if running_frames != 0 or running_alerted:
-                print(
-                    f"RUNNING RESET -> ID={person_id} | "
-                    f"Reason=RunningAllowedInZone"
-                )
+        if running_allowed:
 
             person["running_frames"] = 0
             person["running_alerted"] = False
-            self.alert_manager.clear(person_id, "Running")
+
+            self.alert_manager.clear(
+                person_id,
+                "Running"
+            )
+
             return None
 
-        # --------------------------------------------------
-        # Speed Check
-        # --------------------------------------------------
-        above_threshold = avg_speed >= RUNNING_SPEED
+        # ==================================================
+        # RUNNING DECISION
+        # ==================================================
 
-        print(
-            f"RUNNING DECISION -> ID={person_id} | "
-            f"AvgSpeed={avg_speed:.2f} | Threshold={RUNNING_SPEED} | "
-            f"AboveThreshold={above_threshold}"
+        above_threshold = (
+            avg_motion_speed >= RUNNING_MOTION_THRESHOLD
         )
 
+        print(
+            f"RUNNING DECISION -> "
+            f"ID={person_id} | "
+            f"AvgMotion={avg_motion_speed:.3f} | "
+            f"Threshold={RUNNING_MOTION_THRESHOLD:.3f} | "
+            f"Above={above_threshold}"
+        )
+
+        # ==================================================
+        # MOVING FAST ENOUGH
+        # ==================================================
+
         if above_threshold:
-            person["running_frames"] = running_frames + 1
 
-            print(
-                f"RUNNING COUNTER -> ID={person_id} | "
-                f"Action=INCREMENT | "
-                f"Frames={person['running_frames']}/{RUNNING_FRAME_THRESHOLD}"
+            person["running_frames"] = (
+                running_frames + 1
             )
-        else:
-            person["running_frames"] = max(0, running_frames - 1)
 
             print(
-                f"RUNNING COUNTER -> ID={person_id} | "
-                f"Action=DECAY | "
-                f"Frames={person['running_frames']}/{RUNNING_FRAME_THRESHOLD}"
+                f"RUNNING COUNTER -> "
+                f"ID={person_id} | "
+                f"INCREMENT | "
+                f"Frames={person['running_frames']}/"
+                f"{RUNNING_FRAME_THRESHOLD}"
+            )
+
+        # ==================================================
+        # NOT MOVING FAST ENOUGH
+        # ==================================================
+
+        else:
+
+            person["running_frames"] = max(
+                0,
+                running_frames - 2
+            )
+
+            print(
+                f"RUNNING COUNTER -> "
+                f"ID={person_id} | "
+                f"DECAY | "
+                f"Frames={person['running_frames']}/"
+                f"{RUNNING_FRAME_THRESHOLD}"
             )
 
             if person["running_frames"] == 0:
-                if person.get("running_alerted", False):
-                    print(
-                        f"RUNNING RESET -> ID={person_id} | "
-                        f"Reason=CounterReachedZero"
-                    )
 
                 person["running_alerted"] = False
-                self.alert_manager.clear(person_id, "Running")
+
+                self.alert_manager.clear(
+                    person_id,
+                    "Running"
+                )
 
             return None
 
-        # --------------------------------------------------
-        # Running Confirmation
-        # --------------------------------------------------
-        threshold_reached = (
-            person["running_frames"] >= RUNNING_FRAME_THRESHOLD
-        )
-        already_alerted = bool(person.get("running_alerted", False))
+        # ==================================================
+        # CONFIRM RUNNING
+        # ==================================================
 
-        print(
-            f"RUNNING CONFIRM DEBUG -> ID={person_id} | "
-            f"Frames={person['running_frames']} | "
-            f"Required={RUNNING_FRAME_THRESHOLD} | "
-            f"ThresholdReached={threshold_reached} | "
-            f"AlreadyAlerted={already_alerted}"
-        )
+        if (
+            person["running_frames"]
+            >= RUNNING_FRAME_THRESHOLD
+            and
+            not running_alerted
+        ):
 
-        if threshold_reached and not already_alerted:
-            should_alert = self.alert_manager.should_alert(
-                person_id,
-                "Running",
-            )
-
-            print(
-                f"RUNNING ALERT CHECK -> ID={person_id} | "
-                f"ShouldAlert={should_alert}"
+            should_alert = (
+                self.alert_manager.should_alert(
+                    person_id,
+                    "Running"
+                )
             )
 
             if should_alert:
-                person["running_alerted"] = True
-                person["status"] = "Running"
 
-                print("\n====================================")
+                person["running_alerted"] = True
+
+                person["status"] = "Running"
+                person["activity"] = "Running"
+
+                print(
+                    "\n===================================="
+                )
                 print("RUNNING DETECTED")
-                print(f"Person ID : {person_id}")
-                print(f"Speed     : {avg_speed:.1f}")
-                print(f"Zone      : {person.get('zone')}")
+                print(
+                    f"Person ID : {person_id}"
+                )
+                print(
+                    f"Motion    : {avg_motion_speed:.3f}"
+                )
+                print(
+                    f"Zone      : {person.get('zone')}"
+                )
                 print(
                     f"Frames    : "
-                    f"{person['running_frames']}/{RUNNING_FRAME_THRESHOLD}"
+                    f"{person['running_frames']}/"
+                    f"{RUNNING_FRAME_THRESHOLD}"
                 )
-                print("====================================")
+                print(
+                    "===================================="
+                )
 
                 return {
                     "type": "Running",
                     "person_id": person_id,
                     "zone": person.get("zone"),
-                    "speed": round(avg_speed, 1),
+                    "speed": round(
+                        avg_motion_speed,
+                        3
+                    ),
                     "severity": "HIGH",
                 }
 
-        # --------------------------------------------------
-        # Already Running
-        # --------------------------------------------------
+        # ==================================================
+        # ALREADY RUNNING
+        # ==================================================
+
         if person.get("running_alerted", False):
+
             person["status"] = "Running"
+            person["activity"] = "Running"
 
             print(
-                f"RUNNING ACTIVE -> ID={person_id} | "
-                f"Frames={person['running_frames']} | Status=Running"
+                f"RUNNING ACTIVE -> "
+                f"ID={person_id} | "
+                f"Frames={person['running_frames']}"
             )
 
         return None
