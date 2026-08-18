@@ -1,5 +1,6 @@
 import os
 
+
 ##################################################
 # PROJECT ROOT
 ##################################################
@@ -39,7 +40,7 @@ POSE_MODEL_PATH = os.path.join(
 #
 ##################################################
 
-INPUT_SOURCE = "video"
+INPUT_SOURCE = "webcam"
 
 
 ##################################################
@@ -55,7 +56,7 @@ VIDEO_PATH = os.path.join(
     BASE_DIR,
     "datasets",
     "raw_videos",
-    "run_test.mp4"
+    "sleeping.mp4"
 )
 
 
@@ -156,8 +157,10 @@ LONG_IDLE_TIME = 600
 ##################################################
 # RUNNING DETECTION
 ##################################################
-RUNNING_MOTION_THRESHOLD = 0.18
-RUNNING_FRAME_THRESHOLD = 8
+
+RUNNING_MOTION_THRESHOLD = 0.35   # 0.18
+
+RUNNING_FRAME_THRESHOLD = 12     # 8
 
 RUNNING_ENABLED = True
 
@@ -184,3 +187,44 @@ GROUP_DISTANCE = 120
 GROUP_TIME = 5
 
 GROUP_SPEED = 8
+
+
+##################################################
+# AFTER-SHIFT DETECTION
+##################################################
+
+# Base date used when converting prerecorded-video
+# time into a simulated real-world datetime.
+#
+# Format:
+# YYYY-MM-DD
+#
+# This is mainly useful for video testing.
+
+AFTER_SHIFT_BASE_DATE = "2026-08-17"
+
+
+# Shift end time.
+# Change this to the actual site shift end time.
+
+AFTER_SHIFT_SHIFT_END_TIME = "11:52:10"
+
+
+# For prerecorded video only.
+# This tells the system what clock time frame 0 represents.
+#
+# Example:
+# "10:31:00" means the video starts at 10:31 AM.
+
+AFTER_SHIFT_VIDEO_START_TIME = "11:52:00"
+
+
+# How long a person must remain in an
+# after-shift monitored zone before confirmation.
+
+AFTER_SHIFT_CONFIRM_SECONDS = 1.0
+
+
+# Tolerance for a brief tracking/detection disappearance.
+
+AFTER_SHIFT_GRACE_SECONDS = 2.0

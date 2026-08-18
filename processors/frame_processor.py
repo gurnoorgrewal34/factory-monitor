@@ -7,6 +7,20 @@ from detectors.pose_detector import PoseDetector
 from processors.pose_processor import PoseProcessor
 from processors.pose_matcher import PoseMatcher
 
+from detectors.fall_detector import FallDetector
+
+from engine.sleep_engine import SleepEngine
+
+from app.config import (
+    POSE_MODEL_PATH,
+    INPUT_SOURCE,
+    AFTER_SHIFT_VIDEO_START_TIME,
+    AFTER_SHIFT_BASE_DATE,
+)
+
+from datetime import datetime, timedelta
+import cv2
+
 
 class FrameProcessor:
 
@@ -28,7 +42,9 @@ class FrameProcessor:
 
         behaviour,
 
-        orchestrator
+        orchestrator,
+
+        fps=30.0
 
     ):
 
@@ -48,6 +64,30 @@ class FrameProcessor:
 
         self.orchestrator = orchestrator
 
+        # ------------------------------------------------
+        # FPS
+        #
+        # SleepEngine requires the source FPS in order
+        # to calculate its processing stride and timing.
+        #
+        # Keep 30.0 as a safe backwards-compatible default.
+        # ------------------------------------------------
+
+        self.fps = fps
+
+        ##################################################
+        # FRAME COUNTER
+        #
+        # SleepEngine requires the original frame index.
+        #
+        # IMPORTANT:
+        # This counter belongs ONLY to SleepEngine.
+        # It does not affect the existing tracker,
+        # behaviours, or other detectors.
+        ##################################################
+
+        self.frame_idx = 0
+
         ##################################################
         # Detectors
         #
@@ -65,6 +105,21 @@ class FrameProcessor:
         self.smoking_detector = None
 
         self.pose_detector = None
+
+        self.fall_detector = None
+
+        ##################################################
+        # Sleep Engine
+        ##################################################
+
+        self.sleep_engine = None
+        
+
+        ##################################################
+        # AFTER-SHIFT
+        ##################################################
+
+        self.after_shift_time_anchor = self._build_video_start_time()
 
         ##################################################
         # Pose Processing
@@ -107,7 +162,7 @@ class FrameProcessor:
             )
 
         # ------------------------------------------------
-        # Fire
+        # Fire / Smoke
         #
         # Smoke currently uses the same fire_results.
         # Therefore smoke also requires this detector.
@@ -141,6 +196,20 @@ class FrameProcessor:
             )
 
         # ------------------------------------------------
+        # Fall
+        # ------------------------------------------------
+
+        if self.orchestrator.enabled("fall"):
+
+            print(
+                "ORCHESTRATOR -> Loading FALL model"
+            )
+
+            self.fall_detector = (
+                FallDetector()
+            )
+
+        # ------------------------------------------------
         # Pose
         # ------------------------------------------------
 
@@ -162,6 +231,49 @@ class FrameProcessor:
                 PoseMatcher()
             )
 
+        # ------------------------------------------------
+        # Sleep
+        #
+        # IMPORTANT:
+        #
+        # Sleep does NOT use sleep_detector.pt.
+        #
+        # SleepEngine internally uses YOLO pose
+        # (yolo11n-pose.pt) and applies the sleep/drowsy
+        # posture scoring logic.
+        #
+        # We pass the absolute project pose-model path
+        # instead of just "yolo11n-pose.pt".
+        #
+        # This prevents Ultralytics from looking in the
+        # wrong directory or trying to download another
+        # model.
+        # ------------------------------------------------
+
+        if self.orchestrator.enabled("sleep"):
+
+            print(
+                "ORCHESTRATOR -> Loading SLEEP engine"
+            )
+
+            print(
+                "SLEEP -> Using pose model:",
+                POSE_MODEL_PATH
+            )
+
+            self.sleep_engine = SleepEngine(
+
+                src_fps=self.fps,
+
+                model=POSE_MODEL_PATH,
+
+                imgsz=640,
+
+                process_fps=10.0
+
+            )
+              
+
         ##################################################
         # Initialization complete
         ##################################################
@@ -179,7 +291,67 @@ class FrameProcessor:
         )
 
         print(
+            "Sleep engine:",
+            "ENABLED"
+            if self.sleep_engine is not None
+            else "DISABLED"
+        )
+
+        print(
             "========================================"
+        )
+
+    ############################################################
+    # AFTER-SHIFT TIME HELPERS
+    ############################################################
+
+    def _build_video_start_time(self):
+
+        try:
+            clock_time = datetime.strptime(
+                AFTER_SHIFT_VIDEO_START_TIME,
+                "%H:%M:%S"
+            ).time()
+
+            base_date = datetime.strptime(
+                AFTER_SHIFT_BASE_DATE,
+                "%Y-%m-%d"
+            ).date()
+
+            return datetime.combine(
+                base_date,
+                clock_time
+            )
+
+        except Exception:
+
+            # Safe fallback for development/testing.
+            return datetime.combine(
+                datetime.now().date(),
+                datetime.strptime(
+                    "00:00:00",
+                    "%H:%M:%S"
+                ).time()
+            )
+
+    def _get_frame_time(self, frame_idx):
+
+        # Live sources use real wall-clock time.
+        if INPUT_SOURCE in ("webcam", "cctv", "rtsp"):
+
+            return datetime.now()
+
+        # Video files use the configured video-start clock
+        # plus the frame timeline.
+        return (
+            self.after_shift_time_anchor
+            +
+            timedelta(
+                seconds=(
+                    frame_idx
+                    / max(self.fps, 1e-6)
+                )
+            )
         )
 
     ############################################################
@@ -188,14 +360,18 @@ class FrameProcessor:
 
     def process(self, frame):
 
+        current_frame_idx = self.frame_idx
+
+        frame_time = self._get_frame_time(
+            current_frame_idx
+        )
+
         ##################################################
         # Person Detection & Tracking
         #
         # This remains CORE infrastructure.
         #
-        # Even if only FIRE is selected, person tracking
-        # remains available because the rest of the system
-        # depends on PersonMemory / tracked people.
+        # We do NOT change this.
         ##################################################
 
         results = self.tracker.track(
@@ -209,12 +385,70 @@ class FrameProcessor:
         annotated = frame.copy()
 
         ##################################################
+        # TIMESTAMP / SHIFT STATUS
+        ##################################################
+
+        if self.orchestrator.enabled("after_shift"):
+
+            shift_state = (
+                "AFTER-SHIFT"
+                if self.behaviour.after_shift.is_after_shift(
+                    frame_time
+                )
+                else "SHIFT ACTIVE"
+            )
+
+            timestamp_text = (
+                f"{frame_time.strftime('%d/%m/%Y %H:%M:%S')} | "
+                f"SHIFT: {shift_state}"
+            )
+
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.50
+            thickness = 1
+
+            (tw, th), baseline = cv2.getTextSize(
+                timestamp_text,
+                font,
+                font_scale,
+                thickness
+            )
+
+            pad = 6
+
+            x = max(
+                5,
+                annotated.shape[1] - tw - (pad * 2) - 5
+            )
+
+            y = 10 + th + baseline
+
+            cv2.rectangle(
+                annotated,
+                (x - pad, 5),
+                (
+                    x + tw + pad,
+                    y + baseline + pad
+                ),
+                (0, 0, 0),
+                -1
+            )
+
+            cv2.putText(
+                annotated,
+                timestamp_text,
+                (x, y),
+                font,
+                font_scale,
+                (255, 255, 255),
+                thickness,
+                cv2.LINE_AA
+            )
+
+        ##################################################
         # Object Detection Results
         #
         # Default = None
-        #
-        # A detector only runs when the orchestrator
-        # enables it.
         ##################################################
 
         helmet_results = None
@@ -226,6 +460,8 @@ class FrameProcessor:
         smoking_results = None
 
         pose_results = None
+
+        fall_results = None
 
         ##################################################
         # HELMET MODEL
@@ -285,6 +521,20 @@ class FrameProcessor:
             )
 
         ##################################################
+        # FALL MODEL
+        ##################################################
+
+        if self.orchestrator.enabled(
+            "fall"
+        ):
+
+            fall_results = (
+                self.fall_detector.detect(
+                    frame
+                )
+            )
+
+        ##################################################
         # POSE MODEL
         ##################################################
 
@@ -309,6 +559,8 @@ class FrameProcessor:
         ##################################################
         # Person Processing
         ##################################################
+
+        current_people = []
 
         if boxes.id is not None:
 
@@ -344,6 +596,8 @@ class FrameProcessor:
                     )
                 )
 
+                current_people.append(person)
+
                 if alerts:
 
                     self.alert_overlay.update(
@@ -357,7 +611,7 @@ class FrameProcessor:
             ##################################################
             # POSE PROCESSING
             #
-            # Only runs when pose is enabled.
+            # Existing pose workflow remains untouched.
             ##################################################
 
             if (
@@ -413,20 +667,10 @@ class FrameProcessor:
             ##################################################
             # CORE PERSON BEHAVIOURS
             #
-            # These are your existing behaviours:
-            #
-            # - Restricted Area
-            # - Loitering
-            # - Activity
-            # - Idle
-            # - Running
-            #
-            # We are leaving them intact for now so we
-            # don't accidentally change your current
-            # working behaviour logic.
+            # Existing behaviour workflow remains untouched.
             ##################################################
 
-            self.person_processor.memory.debug()
+            # self.person_processor.memory.debug()                     # used only for debug
 
             for person in (
 
@@ -468,13 +712,13 @@ class FrameProcessor:
                     .get(track_id)
                 )
 
-                print(
-                    f"DRAW -> "
-                    f"Track={track_id} | "
-                    f"MemoryID={person['id']} | "
-                    f"Status={person['status']} | "
-                    f"Box={box}"
-                )
+                # print(
+                #     f"DRAW -> "
+                #     f"Track={track_id} | "
+                #     f"MemoryID={person['id']} | "
+                #     f"Status={person['status']} | "
+                #     f"Box={box}"
+                # )
 
                 annotated = (
                     self.drawing_processor
@@ -488,6 +732,147 @@ class FrameProcessor:
 
                     )
                 )
+
+                ##################################################
+                # AFTER-SHIFT PERSON LABEL
+                ##################################################
+
+                if (
+                    self.orchestrator.enabled("after_shift")
+                    and self.behaviour.after_shift.is_active(
+                        person["id"]
+                    )
+                ):
+
+                    x1, y1, x2, y2 = map(
+                        int,
+                        box
+                    )
+
+                    label_y = min(
+                        annotated.shape[0] - 8,
+                        y2 + 45
+                    )
+
+                    cv2.putText(
+                        annotated,
+                        f"AFTER SHIFT - ID {person['id']}",
+                        (x1, label_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.45,
+                        (0, 0, 255),
+                        1,
+                        cv2.LINE_AA
+                    )
+
+        ##################################################
+        # SLEEP ENGINE
+        #
+        # IMPORTANT:
+        #
+        # SleepEngine works independently from the existing
+        # PersonTracker / PersonMemory pipeline.
+        #
+        # It has its own YOLO-pose tracker because the
+        # colleague's sleep logic contains its own IDMerger,
+        # temporal smoothing, posture scoring, and state
+        # management.
+        #
+        # We therefore DO NOT try to force sleep into
+        # PersonMemory at this stage.
+        #
+        # SleepEngine receives the SAME annotated frame.
+        #
+        # It modifies the frame in-place by drawing:
+        #
+        #   - skeleton
+        #   - person box
+        #   - AWAKE
+        #   - DROWSY
+        #   - SLEEPING
+        #
+        # It runs inference only every configured stride
+        # (8 FPS target), while drawing cached results on
+        # intermediate frames.
+        ##################################################
+
+        if (
+            self.orchestrator.enabled("sleep")
+            and self.sleep_engine is not None
+        ):
+
+            try:
+
+                self.sleep_engine.process_frame(
+
+                    annotated,
+
+                    self.frame_idx
+
+                )
+
+            except Exception as exc:
+
+                print(
+                    "SLEEP ENGINE ERROR ->",
+                    repr(exc)
+                )
+
+                # ------------------------------------------------
+                # IMPORTANT:
+                #
+                # Do not destroy the complete monitoring pipeline
+                # if the sleep engine fails.
+                #
+                # Existing modules continue to operate.
+                # ------------------------------------------------
+
+            finally:
+
+                self.frame_idx += 1
+
+        else:
+
+            # ------------------------------------------------
+            # Keep frame numbering synchronized even when
+            # sleep is disabled.
+            #
+            # This means enabling sleep later does not create
+            # surprising frame-index behaviour.
+            # ------------------------------------------------
+
+            self.frame_idx += 1
+
+        
+        
+       
+        ##################################################
+        # AFTER-SHIFT BEHAVIOUR
+        #
+        # Uses the EXISTING PersonTracker IDs, PersonMemory,
+        # and zones.json. No second person tracker is used.
+        ##################################################
+
+        if self.orchestrator.enabled(
+            "after_shift"
+        ):
+
+            after_shift_alerts = (
+                self.behaviour.process_after_shift(
+                    current_people,
+                    frame_time
+                )
+            )
+
+            if after_shift_alerts:
+
+                self.alert_overlay.update(
+                    after_shift_alerts
+                )
+
+                for alert in after_shift_alerts:
+
+                    print(alert)
 
         ##################################################
         # HELMET BEHAVIOUR
@@ -639,19 +1024,39 @@ class FrameProcessor:
                     print(alert)
 
         ##################################################
+        # FALL BEHAVIOUR
+        ##################################################
+
+        if (
+            self.orchestrator.enabled("fall")
+            and fall_results is not None
+        ):
+
+            fall_alerts = (
+                self.behaviour.process_fall(
+                    fall_results
+                )
+            )
+
+            if fall_alerts:
+
+                self.alert_overlay.update(
+                    fall_alerts
+                )
+
+                for alert in fall_alerts:
+
+                    print(alert)
+
+        ##################################################
         # GROUP / SOCIAL BEHAVIOUR
         #
-        # GroupProcessor currently calls:
-        #
-        # - GroupBehaviour
-        # - GroupStandingBehaviour
-        # - SocialLoiteringBehaviour
-        #
-        # So for now we treat them as one group module.
+        # Existing workflow intentionally retained.
         ##################################################
 
         if self.orchestrator.any_enabled(
-            "group"):
+            "group"
+        ):
 
             group_alerts = (
                 self.group_processor.process()
@@ -678,3 +1083,41 @@ class FrameProcessor:
         )
 
         return annotated
+
+    ############################################################
+    # FINALIZE
+    #
+    # SleepEngine keeps open state events internally.
+    #
+    # This method is provided now so the main application can
+    # call it later at the end of a video/session.
+    #
+    # It does NOT affect the current frame-processing workflow.
+    ############################################################
+
+    def finalize(self):
+
+        if self.sleep_engine is None:
+
+            return []
+
+        try:
+
+            rows = self.sleep_engine.finalize(
+                self.frame_idx
+            )
+
+            print(
+                "SLEEP ENGINE -> Finalized"
+            )
+
+            return rows
+
+        except Exception as exc:
+
+            print(
+                "SLEEP ENGINE FINALIZE ERROR ->",
+                repr(exc)
+            )
+
+            return []

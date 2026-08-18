@@ -1,4 +1,5 @@
 from alerts.alert_manager import AlertManager
+import time
 
 
 class RestrictedAreaBehaviour:
@@ -7,6 +8,8 @@ class RestrictedAreaBehaviour:
 
         self.alert_manager = AlertManager()
 
+    ####################################################
+    # CHECK
     ####################################################
 
     def check(self, person):
@@ -17,10 +20,19 @@ class RestrictedAreaBehaviour:
         # Zone Policy
         ####################################################
 
-        rules = person.get("zone_rules", {})
+        rules = person.get(
+            "zone_rules",
+            {}
+        )
 
-        # If this zone is NOT restricted, ignore it
-        if not rules.get("restricted_access", False):
+        ####################################################
+        # If zone is NOT restricted
+        ####################################################
+
+        if not rules.get(
+            "restricted_access",
+            False
+        ):
 
             self.alert_manager.clear(
 
@@ -30,10 +42,64 @@ class RestrictedAreaBehaviour:
 
             )
 
+            # Reset restricted timer
+            person.pop(
+                "restricted_enter_time",
+                None
+            )
+
             return None
 
         ####################################################
-        # Restricted Area Alert
+        # Restricted zone
+        ####################################################
+
+        current_time = time.time()
+
+        ####################################################
+        # First frame inside restricted zone
+        ####################################################
+
+        if "restricted_enter_time" not in person:
+
+            person["restricted_enter_time"] = current_time
+
+        ####################################################
+        # Time spent inside restricted zone
+        ####################################################
+
+        restricted_time = (
+            current_time
+            -
+            person["restricted_enter_time"]
+        )
+
+        ####################################################
+        # Maximum allowed time
+        #
+        # Default = 0
+        #
+        # This means:
+        # immediately restricted.
+        ####################################################
+
+        max_allowed_time = float(
+            rules.get(
+                "restricted_max_seconds",
+                0
+            )
+        )
+
+        ####################################################
+        # Still within allowed time
+        ####################################################
+
+        if restricted_time < max_allowed_time:
+
+            return None
+
+        ####################################################
+        # Alert
         ####################################################
 
         if self.alert_manager.should_alert(
@@ -52,7 +118,12 @@ class RestrictedAreaBehaviour:
 
                 "zone": person["zone"],
 
-                "severity": "HIGH"
+                "severity": "HIGH",
+
+                "duration": round(
+                    restricted_time,
+                    2
+                )
 
             }
 

@@ -1,8 +1,8 @@
 {
     "site": {
-        "name": "Demo Factory",
+        "name": "Demo Factory - VIDEO TEST",
         "type": "factory",
-        "camera": "Camera_01"
+        "camera": "Video_Camera_01"
     },
 
     "zones": [
@@ -12,10 +12,10 @@
             "name": "Production Floor",
 
             "points": [
-                [95, 120],
-                [1180, 120],
-                [1180, 650],
-                [95, 650]
+                [45, 55],
+                [455, 55],
+                [455, 307],
+                [45, 307]
             ],
 
             "color": [0, 255, 0],
@@ -31,7 +31,98 @@
 
             "monitor": {
                 "fire": true,
-                "smoke": true
+                "smoke": true,
+                "after_shift": true
+            }
+        },
+
+        {
+            "id": "zone_004",
+            "name": "Restricted Area",
+
+            "points": [
+                [455, 55],
+                [1175, 55],
+                [1175, 307],
+                [455, 307]
+            ],
+
+            "color": [0, 0, 255],
+
+            "rules": {
+                "helmet_required": true,
+                "phone_allowed": false,
+                "loitering_allowed": false,
+                "running_allowed": false,
+                "smoking_allowed": false,
+                "restricted_access": true,
+                "restricted_max_seconds": 2
+            },
+
+            "monitor": {
+                "fire": true,
+                "smoke": true,
+                "after_shift": false
+            }
+        },
+
+        {
+            "id": "zone_005",
+            "name": "Loading Area",
+
+            "points": [
+                [45, 307],
+                [370, 307],
+                [370, 665],
+                [45, 665]
+            ],
+
+            "color": [0, 165, 255],
+
+            "rules": {
+                "helmet_required": true,
+                "phone_allowed": false,
+                "loitering_allowed": false,
+                "running_allowed": false,
+                "smoking_allowed": false,
+                "restricted_access": true,
+                "restricted_max_seconds": 5
+            },
+
+            "monitor": {
+                "fire": false,
+                "smoke": false,
+                "after_shift": false
+            }
+        },
+
+        {
+            "id": "zone_006",
+            "name": "High Voltage Area",
+
+            "points": [
+                [370, 307],
+                [740, 307],
+                [740, 665],
+                [370, 665]
+            ],
+
+            "color": [255, 0, 0],
+
+            "rules": {
+                "helmet_required": false,
+                "phone_allowed": false,
+                "loitering_allowed": false,
+                "running_allowed": false,
+                "smoking_allowed": false,
+                "restricted_access": true,
+                "restricted_max_seconds": 2
+            },
+
+            "monitor": {
+                "fire": false,
+                "smoke": false,
+                "after_shift": false
             }
         },
 
@@ -40,10 +131,10 @@
             "name": "Office",
 
             "points": [
-                [1220, 120],
-                [1820, 120],
-                [1820, 650],
-                [1220, 650]
+                [740, 307],
+                [920, 307],
+                [920, 665],
+                [740, 665]
             ],
 
             "color": [255, 0, 0],
@@ -59,18 +150,20 @@
 
             "monitor": {
                 "fire": true,
-                "smoke": true
+                "smoke": true,
+                "after_shift": true
             }
         },
 
         {
             "id": "zone_003",
-            "name": "Parking",
+            "name": "Canteen",
 
             "points": [
-                [95, 700],
-                [700, 1020],
-                [95, 1020]
+                [920, 307],
+                [1175, 307],
+                [1175, 665],
+                [920, 665]
             ],
 
             "color": [255, 255, 0],
@@ -85,36 +178,9 @@
             },
 
             "monitor": {
-                "fire": false,
-                "smoke": false
-            }
-        },
-
-        {
-            "id": "zone_004",
-            "name": "Restricted Area",
-
-            "points": [
-                [1450, 700],
-                [1850, 700],
-                [1850, 1020],
-                [1450, 1020]
-            ],
-
-            "color": [0, 0, 255],
-
-            "rules": {
-                "helmet_required": true,
-                "phone_allowed": false,
-                "loitering_allowed": false,
-                "running_allowed": false,
-                "smoking_allowed": false,
-                "restricted_access": true
-            },
-
-            "monitor": {
                 "fire": true,
-                "smoke": true
+                "smoke": true,
+                "after_shift": true
             }
         }
 

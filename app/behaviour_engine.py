@@ -17,12 +17,18 @@ from zones.zone_policy import ZonePolicy
 from behaviours.group_behaviour import GroupBehaviour
 from behaviours.group_standing import GroupStandingBehaviour
 
+from behaviours.fall_behaviour import FallBehaviour
+
+from behaviours.sleep_behaviour import SleepBehaviour
+from behaviours.after_shift_behaviour import AfterShiftBehaviour
 
 from app.config import RUNNING_ENABLED
 
 class BehaviourEngine:
 
-    def __init__(self, zone_engine):
+    def __init__(self, zone_engine, orchestrator=None):
+
+        self.orchestrator = orchestrator
 
         self.zone_policy = ZonePolicy(zone_engine)
 
@@ -38,10 +44,15 @@ class BehaviourEngine:
         self.fire = FireBehaviour()
         self.smoke = SmokeBehaviour()
         self.pose = PoseBehaviour()
+        self.fall = FallBehaviour()
         
         self.idle = IdleBehaviour()
         self.group = GroupBehaviour()
         self.group_standing = GroupStandingBehaviour()
+        
+        
+        self.sleep = SleepBehaviour()
+        self.after_shift = AfterShiftBehaviour()
         
     ####################################################
     # Individual Behaviours
@@ -91,12 +102,7 @@ class BehaviourEngine:
             alerts.append(alert)
             
             
-        print(
-        f"BehaviourEngine -> "
-        f"ID={person['id']} | "
-        f"Status={person['status']} | "
-        f"Object={id(person)}"
-    )
+    
         
         ####################################################
         # Running
@@ -107,7 +113,7 @@ class BehaviourEngine:
 
             if alert is not None:
                  alerts.append(alert)
-            return alerts
+            
 
         return alerts
 
@@ -205,3 +211,43 @@ class BehaviourEngine:
         smoking_results
 
     )    
+        
+    ####################################################
+    # Fall Behaviour
+    ####################################################
+
+    def process_fall(
+        self,
+        fall_results
+    ):
+
+        return self.fall.check(
+            fall_results
+        )
+        
+        
+    ####################################################
+    # Sleep Behaviour
+    ####################################################
+
+    def process_sleep(self, sleep_engine):
+
+        return self.sleep.process(
+            sleep_engine
+        )
+        
+        
+    ####################################################
+    # After-Shift Behaviour
+    ####################################################
+
+    def process_after_shift(
+        self,
+        current_people,
+        frame_time
+    ):
+
+        return self.after_shift.process(
+            current_people,
+            frame_time
+        )

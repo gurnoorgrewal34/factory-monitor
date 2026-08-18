@@ -73,9 +73,9 @@ class DrawingProcessor:
             f"ID : {person['id']}",
             (x1, y1 - 135),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
+            0.30,    # 0.55 for normal, 0.30 for cam5
             (255, 255, 255),
-            2
+            1    # 2 for normal, 1 for cam5
         )
 
         ####################################################
@@ -87,9 +87,9 @@ class DrawingProcessor:
             f"Speed : {person['avg_speed']:.1f}",
             (x1, y1 - 110),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
+            0.30,   # 0.55 for normal, 0.30 for cam5
             (255, 255, 255),
-            2
+            1        # change to 2
         )
         ####################################################
         # Idle Timer
@@ -107,11 +107,11 @@ class DrawingProcessor:
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.55,
+                0.30,  # 0.55 for normal, 0.30 for cam5
 
                 (255,255,255),
 
-                2
+                1     # change to 2
 
             )
         ####################################################
@@ -123,9 +123,9 @@ class DrawingProcessor:
             f"Pose : {person['pose_state']}",
             (x1, y1 - 85),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
+            0.30,    # 0.55 for normal, 0.30 for cam5
             (255, 255, 0),
-            2
+            1        # 2 for normal, 1 for cam5
         )
 
         ####################################################
@@ -137,9 +137,9 @@ class DrawingProcessor:
             f"Zone : {person['zone']}",
             (x1, y1 - 60),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
+            0.30,    # 0.55 for normal, 0.30 for cam5   
             (255, 255, 0),
-            2
+            1        # 2 for normal, 1 for cam5
         )
 
         ####################################################
@@ -151,9 +151,9 @@ class DrawingProcessor:
             person["status"],
             (x1, y1 - 35),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
+            0.35,    # 0.6 for normal, 0.35 for cam5
             color,
-            2
+            1   # replace with 2 for normal
         )
 
         ####################################################
@@ -167,9 +167,9 @@ class DrawingProcessor:
                 f"Idle : {person.get('idle_time', 0):.1f}s",
                 (x1, y2 + 25),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
+                0.35,    # 0.7 for normal, 0.35 for cam5
                 (255, 0, 255),
-                2
+                1     # change to 2 for normal
             )
 
         ####################################################
@@ -183,9 +183,9 @@ class DrawingProcessor:
                 "RUNNING",
                 (x1, y2 + 25),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
+                0.35,    # 0.8 for normal, 0.35 for cam5
                 (0, 165, 255),
-                3
+                1     # change to 3 for normal
             )
             
             
@@ -207,11 +207,11 @@ class DrawingProcessor:
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.65,
+                0.35,    # 0.65 for normal, 0.35 for cam5
 
                 (255,0,255),
 
-                2
+                1        # 2 for normal, 1 for cam5
 
             )
 
@@ -227,11 +227,11 @@ class DrawingProcessor:
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.75,
+                0.35,    # 0.75 for normal, 0.35 for cam5
 
                 (255,255,0),
 
-                2
+                1     # change to 2 for normal
             )
 
         elif person["status"] == "Slow Working":
@@ -246,11 +246,11 @@ class DrawingProcessor:
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.75,
+                0.35,    # 0.75 for normal, 0.35 for cam5
 
                 (0,255,255),
 
-                2
+                1     # change to 2 for normal
     )   
 
         ####################################################

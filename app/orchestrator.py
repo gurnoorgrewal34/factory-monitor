@@ -14,17 +14,17 @@ class Orchestrator:
             "smoke",
             "smoking",
             "pose",
-            "groups",
-            "fight",
-
+            "group",
+            "sleep",
+            "fall",
+            "after_shift"
         }
 
         ##################################################
         # Default
         #
-        # IMPORTANT:
         # Keep ALL as default so the current project
-        # behaves exactly as before.
+        # continues to behave exactly as before.
         ##################################################
 
         self.selected_modules = set(

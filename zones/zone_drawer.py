@@ -78,11 +78,11 @@ class ZoneDrawer:
 
                 zone["name"],
 
-                (int(x), int(y) - 10),
+                (int(x), int(y) - 5),       # change to (int(x), int(y) - 10 ) for normal
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.7,
+                0.35,     # channge to 0.7 for normal, 0.35 for cam5
 
                 color,
 

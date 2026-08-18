@@ -34,7 +34,9 @@ print("========================================")
 
 
 orchestrator = Orchestrator()
-
+orchestrator.set_modules([
+    "sleep"
+])
 
 
 tracker = PersonTracker()
@@ -77,16 +79,7 @@ group_processor = GroupProcessor(
 )
 
 
-frame_processor = FrameProcessor(
-    tracker,
-    zone_drawer,
-    person_processor,
-    drawing_processor,
-    group_processor,
-    alert_overlay,
-    behaviour,
-    orchestrator
-)
+
 
 
 # ==================================================
@@ -130,6 +123,20 @@ if not ret:
 height, width = first_frame.shape[:2]
 
 
+# only for debugging
+print()
+print("========================================")
+print("ACTUAL CAMERA FRAME")
+print("========================================")
+print(f"Width  : {width}")
+print(f"Height : {height}")
+print(f"Shape  : {first_frame.shape}")
+print("========================================")
+print()
+
+#debug over
+
+
 # ==================================================
 # FPS
 # ==================================================
@@ -140,6 +147,18 @@ fps = camera.get_fps()
 if fps <= 0:
 
     fps = 30.0
+
+frame_processor = FrameProcessor(
+    tracker,
+    zone_drawer,
+    person_processor,
+    drawing_processor,
+    group_processor,
+    alert_overlay,
+    behaviour,
+    orchestrator,
+    fps=fps
+)
 
 
 # ==================================================
@@ -164,7 +183,7 @@ os.makedirs(
 
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR,
-    "op120826.mp4"
+    "new_sleep1.mp4"
 )
 
 
@@ -273,7 +292,16 @@ writer.write(
     annotated
 )
 
+# comment this display when not using cctv
 
+# display_frame = cv2.resize(
+#     annotated,
+#     None,
+#     fx=3,
+#     fy=3,
+#     interpolation=cv2.INTER_LINEAR
+# )
+# and change the display_frame to annotated in the cv2.imshow() below if not using cctv
 cv2.imshow(
     WINDOW_NAME,
     annotated
@@ -372,7 +400,16 @@ while True:
     # ==================================================
     # OPTIONAL LIVE DISPLAY
     # ==================================================
-
+    
+    # comment this display when not using cctv
+    # display_frame = cv2.resize(
+    #     annotated,
+    #     None,
+    #     fx=3,
+    #     fy=3,
+    #     interpolation=cv2.INTER_LINEAR
+    # )
+    # and change the display_frame to annotated in the cv2.imshow() below if not using cctv
     cv2.imshow(
         WINDOW_NAME,
         annotated

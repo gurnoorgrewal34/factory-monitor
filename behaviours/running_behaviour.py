@@ -31,14 +31,14 @@ class RunningBehaviour:
             person.get("running_alerted", False)
         )
 
-        print(
-            f"RUNNING DEBUG -> "
-            f"ID={person_id} | "
-            f"Motion={motion_speed:.3f} | "
-            f"AvgMotion={avg_motion_speed:.3f} | "
-            f"Frames={running_frames}/{RUNNING_FRAME_THRESHOLD} | "
-            f"Alerted={running_alerted}"
-        )
+        # print(
+        #     f"RUNNING DEBUG -> "
+        #     f"ID={person_id} | "
+        #     f"Motion={motion_speed:.3f} | "
+        #     f"AvgMotion={avg_motion_speed:.3f} | "
+        #     f"Frames={running_frames}/{RUNNING_FRAME_THRESHOLD} | "
+        #     f"Alerted={running_alerted}"
+        # )
 
         # ==================================================
         # ZONE POLICY
@@ -71,13 +71,13 @@ class RunningBehaviour:
             avg_motion_speed >= RUNNING_MOTION_THRESHOLD
         )
 
-        print(
-            f"RUNNING DECISION -> "
-            f"ID={person_id} | "
-            f"AvgMotion={avg_motion_speed:.3f} | "
-            f"Threshold={RUNNING_MOTION_THRESHOLD:.3f} | "
-            f"Above={above_threshold}"
-        )
+        # print(
+        #     f"RUNNING DECISION -> "
+        #     f"ID={person_id} | "
+        #     f"AvgMotion={avg_motion_speed:.3f} | "
+        #     f"Threshold={RUNNING_MOTION_THRESHOLD:.3f} | "
+        #     f"Above={above_threshold}"
+        # )
 
         # ==================================================
         # MOVING FAST ENOUGH
@@ -89,13 +89,13 @@ class RunningBehaviour:
                 running_frames + 1
             )
 
-            print(
-                f"RUNNING COUNTER -> "
-                f"ID={person_id} | "
-                f"INCREMENT | "
-                f"Frames={person['running_frames']}/"
-                f"{RUNNING_FRAME_THRESHOLD}"
-            )
+            # print(
+            #     f"RUNNING COUNTER -> "
+            #     f"ID={person_id} | "
+            #     f"INCREMENT | "
+            #     f"Frames={person['running_frames']}/"
+            #     f"{RUNNING_FRAME_THRESHOLD}"
+            # )
 
         # ==================================================
         # NOT MOVING FAST ENOUGH
@@ -108,13 +108,13 @@ class RunningBehaviour:
                 running_frames - 2
             )
 
-            print(
-                f"RUNNING COUNTER -> "
-                f"ID={person_id} | "
-                f"DECAY | "
-                f"Frames={person['running_frames']}/"
-                f"{RUNNING_FRAME_THRESHOLD}"
-            )
+            # print(
+            #     f"RUNNING COUNTER -> "
+            #     f"ID={person_id} | "
+            #     f"DECAY | "
+            #     f"Frames={person['running_frames']}/"
+            #     f"{RUNNING_FRAME_THRESHOLD}"
+            # )
 
             if person["running_frames"] == 0:
 
@@ -194,10 +194,10 @@ class RunningBehaviour:
             person["status"] = "Running"
             person["activity"] = "Running"
 
-            print(
-                f"RUNNING ACTIVE -> "
-                f"ID={person_id} | "
-                f"Frames={person['running_frames']}"
-            )
+            # print(
+            #     f"RUNNING ACTIVE -> "
+            #     f"ID={person_id} | "
+            #     f"Frames={person['running_frames']}"
+            # )
 
         return None

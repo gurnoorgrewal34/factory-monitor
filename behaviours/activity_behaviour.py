@@ -5,12 +5,12 @@ class ActivityBehaviour:
         speed = float(person.get("avg_speed", 0.0))
         pose = person.get("pose_state", "Unknown")
 
-        print(
-            f"ACTIVITY INPUT -> "
-            f"ID={person['id']} | "
-            f"Pose={pose} | "
-            f"Speed={speed:.1f}"
-        )
+        # print(
+        #     f"ACTIVITY INPUT -> "
+        #     f"ID={person['id']} | "
+        #     f"Pose={pose} | "
+        #     f"Speed={speed:.1f}"
+        # )
 
         ####################################################
         # IMPORTANT:
@@ -40,10 +40,10 @@ class ActivityBehaviour:
             person["status"] = "Unknown"
             person["activity"] = "Unknown"
 
-        print(
-            f"ACTIVITY -> "
-            f"{person['id']} | "
-            f"Pose={pose} | "
-            f"Speed={speed:.1f} | "
-            f"Status={person['status']}"
-        )
+        # print(
+        #     f"ACTIVITY -> "
+        #     f"{person['id']} | "
+        #     f"Pose={pose} | "
+        #     f"Speed={speed:.1f} | "
+        #     f"Status={person['status']}"
+        # )
