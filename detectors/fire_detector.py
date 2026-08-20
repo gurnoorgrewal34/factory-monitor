@@ -19,7 +19,7 @@ class FireDetector:
         )
 
         print(
-            "Model: models/fire_smoke.pt"
+            "Model: models/3rd_model_fire_smoke.pt"
         )
 
         print(

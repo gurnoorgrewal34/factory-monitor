@@ -8,7 +8,7 @@ class PersonProcessor:
 
     ##################################################
 
-    def process(self, track_id, box):
+    def process(self, track_id, box,frame_time=None):
 
         x1, y1, x2, y2 = map(int, box)
 
@@ -25,7 +25,7 @@ class PersonProcessor:
         # Update Memory
         ##################################################
 
-        self.memory.update(track_id, center, box)
+        self.memory.update(track_id, center, box,frame_time=frame_time)
 
         ##################################################
         # Zone Information

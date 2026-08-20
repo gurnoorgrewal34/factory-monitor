@@ -17,7 +17,8 @@ class Orchestrator:
             "group",
             "sleep",
             "fall",
-            "after_shift"
+            "after_shift",
+            "running"
         }
 
         ##################################################

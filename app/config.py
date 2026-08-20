@@ -40,7 +40,7 @@ POSE_MODEL_PATH = os.path.join(
 #
 ##################################################
 
-INPUT_SOURCE = "webcam"
+INPUT_SOURCE = "video"
 
 
 ##################################################
@@ -56,7 +56,7 @@ VIDEO_PATH = os.path.join(
     BASE_DIR,
     "datasets",
     "raw_videos",
-    "sleeping.mp4"
+    "test_3.mp4"
 )
 
 
@@ -228,3 +228,41 @@ AFTER_SHIFT_CONFIRM_SECONDS = 1.0
 # Tolerance for a brief tracking/detection disappearance.
 
 AFTER_SHIFT_GRACE_SECONDS = 2.0
+
+##################################################
+# ALERT DISPLAY DURATIONS
+##################################################
+
+AFTER_SHIFT_ALERT_DISPLAY_SECONDS = 5.0
+
+FALL_ALERT_DISPLAY_SECONDS = 8.0
+
+
+
+
+DEBUG = False
+
+
+
+##################################################
+# PERFORMANCE / MODEL SCHEDULING
+##################################################
+
+# Core person tracking
+TRACKER_FRAME_INTERVAL = 1
+
+# PPE / behaviour detectors
+HELMET_FRAME_INTERVAL = 2
+
+PHONE_FRAME_INTERVAL = 2
+
+# Expensive detectors
+FIRE_SMOKE_FRAME_INTERVAL = 2
+
+SMOKING_FRAME_INTERVAL = 2
+
+# Safety detector
+FALL_FRAME_INTERVAL = 2
+
+# General pose detector
+POSE_FRAME_INTERVAL = 2

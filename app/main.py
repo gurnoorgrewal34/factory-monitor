@@ -35,7 +35,7 @@ print("========================================")
 
 orchestrator = Orchestrator()
 orchestrator.set_modules([
-    "sleep"
+    "smoking"
 ])
 
 
@@ -183,7 +183,7 @@ os.makedirs(
 
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR,
-    "new_sleep1.mp4"
+    "check3.mp4"
 )
 
 

@@ -1,7 +1,9 @@
 from collections import deque
 
 from alerts.alert_manager import AlertManager
-
+from app.config import (
+    FALL_ALERT_DISPLAY_SECONDS,
+)
 
 class FallBehaviour:
 
@@ -276,7 +278,10 @@ class FallBehaviour:
 
                         "severity": "CRITICAL",
 
-                        "persistent": True
+                        "persistent": False,
+
+                        "display_seconds":
+                            FALL_ALERT_DISPLAY_SECONDS
 
                     })
 

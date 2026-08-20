@@ -1,6 +1,8 @@
 import math
 import time
 
+from app.config import DEBUG
+
 from app.config import (
     SOCIAL_DISTANCE,
     SOCIAL_TIME,
@@ -319,7 +321,8 @@ class SocialLoiteringBehaviour:
                     self.group_history[pair]
                 )
 
-                print(
+                if DEBUG:
+                    print(
                     f"SOCIAL DEBUG -> "
                     f"Pair={pair} | "
                     f"Zone={zone1} | "
@@ -333,7 +336,7 @@ class SocialLoiteringBehaviour:
                     f"Status1={p1.get('status')} | "
                     f"Status2={p2.get('status')} | "
                     f"Duration={duration:.1f}/{SOCIAL_TIME}s"
-                )
+                    )
 
                 # ==================================================
                 # CONFIRM

@@ -185,10 +185,31 @@ class PersonMemory:
     # ==========================================================
     # UPDATE POSITION
     # ==========================================================
+    def update(
+        self,
+        track_id,
+        center,
+        box,
+        frame_time=None
+    ):
 
-    def update(self, track_id, center, box):
+        if frame_time is not None:
 
-        current_time = time.time()
+            if hasattr(frame_time, "timestamp"):
+
+                current_time = (
+                    frame_time.timestamp()
+                )
+
+            else:
+
+                current_time = float(
+                    frame_time
+                )
+
+        else:
+
+            current_time = time.time()
 
         # ------------------------------------------------------
         # New person

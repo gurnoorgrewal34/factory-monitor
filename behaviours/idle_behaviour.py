@@ -1,4 +1,5 @@
 import time
+from app.config import DEBUG
 
 from app.config import (
     STANDING_SPEED,
@@ -72,14 +73,15 @@ class IdleBehaviour:
         )
 
         # debug print
-        print(
-            f"IDLE DEBUG -> "
-            f"ID={person['id']} | "
-            f"Body={person['avg_speed']:.1f} | "
-            f"LHand={person['left_hand_speed']:.1f} | "
-            f"RHand={person['right_hand_speed']:.1f} | "
-            f"Stationary={stationary}"
-        )
+        if DEBUG:
+            print(
+                f"IDLE DEBUG -> "
+                f"ID={person['id']} | "
+                f"Body={person['avg_speed']:.1f} | "
+                f"LHand={person['left_hand_speed']:.1f} | "
+                f"RHand={person['right_hand_speed']:.1f} | "
+                f"Stationary={stationary}"
+            )
         ##################################################
         # Reset if moving
         ##################################################

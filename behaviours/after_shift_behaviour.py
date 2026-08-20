@@ -6,6 +6,7 @@ from app.config import (
     AFTER_SHIFT_SHIFT_END_TIME,
     AFTER_SHIFT_CONFIRM_SECONDS,
     AFTER_SHIFT_GRACE_SECONDS,
+    AFTER_SHIFT_ALERT_DISPLAY_SECONDS,
 )
 
 
@@ -267,7 +268,10 @@ class AfterShiftBehaviour:
                             round(duration, 2)
                         ),
 
-                        "persistent": True
+                        "persistent": False,
+
+                        "display_seconds":
+                            AFTER_SHIFT_ALERT_DISPLAY_SECONDS
 
                     })
 

@@ -20,7 +20,8 @@ from app.config import (
 
 from datetime import datetime, timedelta
 import cv2
-
+import time
+from collections import defaultdict
 
 class FrameProcessor:
 
@@ -87,6 +88,39 @@ class FrameProcessor:
         ##################################################
 
         self.frame_idx = 0
+        
+        ##################################################
+        # PERFORMANCE PROFILER
+        #
+        # Measures model/runtime cost without changing
+        # detection behaviour.
+        ##################################################
+
+        self.perf_totals = defaultdict(float)
+
+        self.perf_counts = defaultdict(int)
+
+        self.perf_report_every = 30
+        
+        
+        
+        ##################################################
+        # PHASE-1 PERFORMANCE SCHEDULING
+        #
+        # 1 = run every frame
+        # 2 = run every second frame
+        #
+        # For the first optimization pass we touch ONLY
+        # Fire/Smoke and Smoking because profiling showed
+        # they are by far the biggest bottlenecks.
+        #
+        # Tracker / Helmet / Phone / Fall / Pose / Sleep
+        # remain unchanged.
+        ##################################################
+
+        self.fire_smoke_frame_interval = 2
+
+        self.smoking_frame_interval = 2
 
         ##################################################
         # Detectors
@@ -354,12 +388,149 @@ class FrameProcessor:
             )
         )
 
+    
+    
+        ############################################################
+    # PERFORMANCE PROFILER
+    ############################################################
+
+    def _perf_add(self, name, elapsed_seconds):
+
+        self.perf_totals[name] += (
+            elapsed_seconds * 1000.0
+        )
+
+        self.perf_counts[name] += 1
+
+
+    def _perf_report(self):
+
+        if self.frame_idx == 0:
+
+            return
+
+
+        if (
+            self.frame_idx
+            % self.perf_report_every
+            != 0
+        ):
+
+            return
+
+
+        print()
+        print(
+            "========================================"
+        )
+        print(
+            "PERFORMANCE REPORT"
+        )
+        print(
+            f"Frame: {self.frame_idx}"
+        )
+        print(
+            "----------------------------------------"
+        )
+
+
+        ordered_modules = [
+
+            "tracker",
+
+            "helmet",
+
+            "phone",
+
+            "fire_smoke",
+
+            "smoking",
+
+            "fall",
+
+            "pose",
+
+            "sleep",
+
+            "total"
+        ]
+
+
+        for name in ordered_modules:
+
+            count = self.perf_counts.get(
+                name,
+                0
+            )
+
+
+            if count == 0:
+
+                continue
+
+
+            average_ms = (
+
+                self.perf_totals[name]
+
+                / count
+            )
+
+
+            print(
+                f"{name:<14}: "
+                f"{average_ms:>8.2f} ms"
+            )
+
+
+        total_count = self.perf_counts.get(
+            "total",
+            0
+        )
+
+
+        if total_count > 0:
+
+            avg_total_ms = (
+
+                self.perf_totals["total"]
+
+                / total_count
+            )
+
+
+            if avg_total_ms > 0:
+
+                approx_fps = (
+
+                    1000.0
+
+                    / avg_total_ms
+                )
+
+
+                print(
+                    "----------------------------------------"
+                )
+
+                print(
+                    f"Approx Pipeline FPS : "
+                    f"{approx_fps:.2f}"
+                )
+
+
+        print(
+            "========================================"
+        )
+        print()
     ############################################################
     # PROCESS FRAME
     ############################################################
 
     def process(self, frame):
-
+        
+        
+        total_start = time.perf_counter()
         current_frame_idx = self.frame_idx
 
         frame_time = self._get_frame_time(
@@ -374,8 +545,16 @@ class FrameProcessor:
         # We do NOT change this.
         ##################################################
 
+        tracker_start = time.perf_counter()
+
         results = self.tracker.track(
             frame
+        )
+
+        self._perf_add(
+            "tracker",
+            time.perf_counter()
+            - tracker_start
         )
 
         result = results[0]
@@ -471,10 +650,18 @@ class FrameProcessor:
             "helmet"
         ):
 
+            detector_start = time.perf_counter()
+
             helmet_results = (
                 self.helmet_detector.detect(
                     frame
                 )
+            )
+
+            self._perf_add(
+                "helmet",
+                time.perf_counter()
+                - detector_start
             )
 
         ##################################################
@@ -485,14 +672,24 @@ class FrameProcessor:
             "phone"
         ):
 
+            detector_start = time.perf_counter()
+
             phone_results = (
                 self.phone_detector.detect(
                     frame
                 )
             )
 
+            self._perf_add(
+                "phone",
+                time.perf_counter()
+                - detector_start
+            )
+
         ##################################################
         # FIRE / SMOKE MODEL
+        #
+        # Run every second source frame.
         ##################################################
 
         if self.orchestrator.any_enabled(
@@ -500,26 +697,57 @@ class FrameProcessor:
             "smoke"
         ):
 
-            fire_results = (
-                self.fire_detector.detect(
-                    frame
+            if (
+                current_frame_idx
+                % self.fire_smoke_frame_interval
+                == 0
+            ):
+
+                detector_start = time.perf_counter()
+
+                fire_results = (
+                    self.fire_detector.detect(
+                        frame
+                    )
                 )
-            )
+
+                self._perf_add(
+                    "fire_smoke",
+                    time.perf_counter()
+                    - detector_start
+                )
 
         ##################################################
         # SMOKING MODEL
+        #
+        # Run every second source frame.
         ##################################################
 
         if self.orchestrator.enabled(
             "smoking"
         ):
 
-            smoking_results = (
-                self.smoking_detector.detect(
-                    frame
-                )
-            )
+            if (
+                current_frame_idx
+                % self.smoking_frame_interval
+                == 0
+            ):
 
+                detector_start = time.perf_counter()
+
+                smoking_results = (
+                    self.smoking_detector.detect(
+                        frame
+                    )
+                )
+
+                self._perf_add(
+                    "smoking",
+                    time.perf_counter()
+                    - detector_start
+                )
+                
+                
         ##################################################
         # FALL MODEL
         ##################################################
@@ -528,10 +756,18 @@ class FrameProcessor:
             "fall"
         ):
 
+            detector_start = time.perf_counter()
+
             fall_results = (
                 self.fall_detector.detect(
                     frame
                 )
+            )
+
+            self._perf_add(
+                "fall",
+                time.perf_counter()
+                - detector_start
             )
 
         ##################################################
@@ -542,12 +778,19 @@ class FrameProcessor:
             "pose"
         ):
 
+            detector_start = time.perf_counter()
+
             pose_results = (
                 self.pose_detector.detect(
                     frame
                 )
             )
 
+            self._perf_add(
+                "pose",
+                time.perf_counter()
+                - detector_start
+            )
         ##################################################
         # Draw Zones
         ##################################################
@@ -591,7 +834,8 @@ class FrameProcessor:
 
                         track_id,
 
-                        box
+                        box,
+                        frame_time=frame_time
 
                     )
                 )
@@ -803,12 +1047,17 @@ class FrameProcessor:
 
             try:
 
+                sleep_start = time.perf_counter()
+
                 self.sleep_engine.process_frame(
-
                     annotated,
-
                     self.frame_idx
+                )
 
+                self._perf_add(
+                    "sleep",
+                    time.perf_counter()
+                    - sleep_start
                 )
 
             except Exception as exc:
@@ -1081,6 +1330,21 @@ class FrameProcessor:
                 annotated
             )
         )
+
+
+        ##################################################
+        # PERFORMANCE TOTAL
+        ##################################################
+
+        self._perf_add(
+            "total",
+            time.perf_counter()
+            - total_start
+        )
+
+
+        self._perf_report()
+
 
         return annotated
 

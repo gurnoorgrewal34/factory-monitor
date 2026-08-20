@@ -1,6 +1,8 @@
 import math
 import time
 
+from app.config import DEBUG
+
 class PoseProcessor:
 
     LEFT_SHOULDER = 5
@@ -91,13 +93,15 @@ class PoseProcessor:
             person["last_pose_time"] = current_time
             
             
-            print(
-                    f"HAND DEBUG -> "
-                    f"ID={person['id']} | "
-                    f"Body={person['avg_speed']:.1f} | "
-                    f"LHand={person['left_hand_speed']:.1f} | "
-                    f"RHand={person['right_hand_speed']:.1f}"
-                )
+            if DEBUG:
+                
+                print(
+                        f"HAND DEBUG -> "
+                        f"ID={person['id']} | "
+                        f"Body={person['avg_speed']:.1f} | "
+                        f"LHand={person['left_hand_speed']:.1f} | "
+                        f"RHand={person['right_hand_speed']:.1f}"
+                    )
 
             ##########################################
             # Torso Angle
