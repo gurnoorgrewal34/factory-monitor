@@ -5,7 +5,6 @@ class Orchestrator:
         ##################################################
         # Available Modules
         ##################################################
-
         self.available_modules = {
 
             "helmet",
@@ -13,12 +12,20 @@ class Orchestrator:
             "fire",
             "smoke",
             "smoking",
+
             "pose",
-            "group",
             "sleep",
             "fall",
-            "after_shift",
-            "running"
+
+            "group",
+
+            "running",
+            "restricted",
+            "loitering",
+            "idle",
+            "activity",
+
+            "after_shift"
         }
 
         ##################################################
@@ -166,20 +173,31 @@ class Orchestrator:
 
     def set_modules(self, modules):
 
-        if isinstance(
-            modules,
-            str
-        ):
+        if isinstance(modules, str):
+            modules = [modules]
 
-            modules = [
-                modules
-            ]
+        normalized = [
+            module.lower().strip()
+            for module in modules
+        ]
+
+        # ================================================
+        # SPECIAL MODE: ALL
+        # ================================================
+
+        if "all" in normalized:
+
+            self.enable_all()
+
+            return True
+
+        # ================================================
+        # SELECTED MODULES
+        # ================================================
 
         selected = set()
 
-        for module in modules:
-
-            module = module.lower().strip()
+        for module in normalized:
 
             if module not in self.available_modules:
 
@@ -190,9 +208,7 @@ class Orchestrator:
 
                 continue
 
-            selected.add(
-                module
-            )
+            selected.add(module)
 
         self.selected_modules = selected
 

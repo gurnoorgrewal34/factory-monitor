@@ -1,0 +1,95 @@
+{
+    "cameras": [
+        {
+            "id": "cam_01",
+            "name": "Production Floor",
+            "enabled": true,
+
+            "source_type": "video",
+            "video_path": "datasets/raw_videos/testing_video.mp4",
+            "webcam_index": 0,
+            "cctv_url": null,
+            
+            "zones_file": "zones/zones.json",
+
+            "modules": [
+                "pose"
+            ],
+            "save_output": true
+        },
+
+        {
+            "id": "cam_02",
+            "name": "Loading Area",
+            "enabled": false,
+
+            "source_type": "webcam",
+            "video_path": null,
+            "webcam_index": 0,
+            "cctv_url": null,
+
+            "zones_file": "zones/zones.json",
+
+            "modules": [
+                "helmet"
+            ]
+        },
+
+        {
+            "id": "cam_03",
+            "name": "Warehouse",
+            "enabled": false,
+
+            "source_type": "cctv",
+            "video_path": null,
+            "webcam_index": 0,
+            "cctv_url": null,
+
+            "zones_file": "zones/zones.json",
+
+            "modules": [
+                "helmet",
+                "phone",
+                "running"
+            ]
+        },
+
+        {
+            "id": "cam_04",
+            "name": "Entrance",
+            "enabled": false,
+
+            "source_type": "cctv",
+            "video_path": null,
+            "webcam_index": 0,
+            "cctv_url": null,
+
+            "zones_file": "zones/zones.json",
+
+            "modules": [
+                "group",
+                "after_shift"
+            ]
+        },
+
+        {
+            "id": "cam_05",
+            "name": "Packing Area",
+            "enabled": false,
+
+            "source_type": "cctv",
+            "video_path": null,
+            "webcam_index": 0,
+            "cctv_url": null,
+
+            "zones_file": "zones/zones.json",
+
+            "modules": [
+                "helmet",
+                "phone",
+                "smoking",
+                "running"
+            ]
+        }
+    ]
+}

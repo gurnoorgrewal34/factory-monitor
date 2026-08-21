@@ -6,25 +6,49 @@ class AlertOverlay:
 
     def __init__(self):
 
+        ##################################################
+        # Alerts currently visible on video
+        ##################################################
+
         self.active_alerts = []
 
-        # Default duration used when an alert does not
-        # provide its own display_seconds value.
+        ##################################################
+        # Newly generated alerts waiting to be consumed
+        # by CameraRuntime / WebSocket.
+        #
+        # IMPORTANT:
+        # We DO NOT clear this on every update() because
+        # FrameProcessor may call update() several times
+        # during the same frame.
+        ##################################################
+
+        self.recent_alerts = []
+
+        ##################################################
+        # Default UI settings
+        ##################################################
+
         self.display_seconds = 5
 
         self.max_alerts = 6
 
-    ####################################################
-    # Update Alerts
-    ####################################################
+    ######################################################
+    # UPDATE ALERTS
+    ######################################################
 
     def update(self, alerts):
+
+        if not alerts:
+            return
 
         now = time.time()
 
         for alert in alerts:
 
-            alert_type = alert["type"]
+            alert_type = alert.get(
+                "type",
+                "Unknown"
+            )
 
             person_id = alert.get(
                 "person_id"
@@ -35,8 +59,6 @@ class AlertOverlay:
                 False
             )
 
-            # Allow individual alerts to specify
-            # their own display duration.
             display_seconds = alert.get(
                 "display_seconds",
                 self.display_seconds
@@ -44,54 +66,47 @@ class AlertOverlay:
 
             duplicate = False
 
-            ################################################
-            # Find existing alert
-            ################################################
+            ##################################################
+            # UPDATE EXISTING VISUAL ALERT
+            ##################################################
 
             for existing in self.active_alerts:
 
                 if (
-
-                    existing["type"] == alert_type
-
+                    existing.get("type") == alert_type
                     and
-
-                    existing.get("person_id")
-                    == person_id
-
+                    existing.get("person_id") == person_id
                 ):
 
-                    # Refresh the alert timestamp.
                     existing["timestamp"] = now
 
                     existing["severity"] = alert.get(
-
                         "severity",
-
                         existing.get(
                             "severity",
                             "LOW"
                         )
-
                     )
 
                     existing["persistent"] = (
                         persistent
                     )
 
-                    # IMPORTANT:
-                    # Preserve/update custom alert lifetime.
                     existing["display_seconds"] = (
                         display_seconds
                     )
 
-                    # Keep latest additional information,
-                    # such as zone or duration.
+                    ##################################################
+                    # Copy latest metadata such as:
+                    # zone
+                    # speed
+                    # duration
+                    # confidence
+                    ##################################################
+
                     for key, value in alert.items():
 
-                        if key not in (
-                            "timestamp",
-                        ):
+                        if key != "timestamp":
 
                             existing[key] = value
 
@@ -99,15 +114,13 @@ class AlertOverlay:
 
                     break
 
-            ################################################
-            # New alert
-            ################################################
+            ##################################################
+            # NEW ALERT
+            ##################################################
 
             if not duplicate:
 
-                new_alert = (
-                    alert.copy()
-                )
+                new_alert = alert.copy()
 
                 new_alert["timestamp"] = now
 
@@ -119,29 +132,54 @@ class AlertOverlay:
                     new_alert
                 )
 
-    ####################################################
-    # Draw
-    ####################################################
+                ##################################################
+                # IMPORTANT:
+                #
+                # This is the event that CameraRuntime will
+                # forward to WebSocket.
+                #
+                # Only genuinely new visual/event alerts are
+                # emitted here. Refreshes of an existing alert
+                # do not spam the frontend.
+                ##################################################
+
+                self.recent_alerts.append(
+                    new_alert.copy()
+                )
+
+    ######################################################
+    # GET NEW ALERT EVENTS
+    ######################################################
+
+    def pop_recent_alerts(self):
+
+        """
+        Return alerts generated since the previous call.
+
+        CameraRuntime calls this once after processing
+        each frame.
+        """
+
+        if not self.recent_alerts:
+            return []
+
+        alerts = self.recent_alerts.copy()
+
+        self.recent_alerts.clear()
+
+        return alerts
+
+    ######################################################
+    # DRAW ALERT OVERLAY
+    ######################################################
 
     def draw(self, frame):
 
         now = time.time()
 
-        ################################################
-        # Remove expired alerts
-        #
-        # Persistent alerts remain indefinitely.
-        #
-        # Non-persistent alerts use:
-        #
-        #     alert["display_seconds"]
-        #
-        # when provided.
-        #
-        # Otherwise they use the default:
-        #
-        #     self.display_seconds
-        ################################################
+        ##################################################
+        # REMOVE EXPIRED ALERTS
+        ##################################################
 
         updated_alerts = []
 
@@ -153,11 +191,8 @@ class AlertOverlay:
             )
 
             display_seconds = alert.get(
-
                 "display_seconds",
-
                 self.display_seconds
-
             )
 
             timestamp = alert.get(
@@ -171,9 +206,9 @@ class AlertOverlay:
                 timestamp
             )
 
-            ################################################
-            # Keep persistent alerts
-            ################################################
+            ##################################################
+            # Persistent alert
+            ##################################################
 
             if persistent:
 
@@ -183,9 +218,9 @@ class AlertOverlay:
 
                 continue
 
-            ################################################
-            # Keep temporary alert while still valid
-            ################################################
+            ##################################################
+            # Temporary alert
+            ##################################################
 
             if age <= display_seconds:
 
@@ -197,19 +232,17 @@ class AlertOverlay:
             updated_alerts
         )
 
-        ################################################
-        # Nothing to draw
-        ################################################
+        ##################################################
+        # NOTHING TO DRAW
+        ##################################################
 
-        if len(
-            self.active_alerts
-        ) == 0:
+        if not self.active_alerts:
 
             return frame
 
-        ################################################
-        # Priority
-        ################################################
+        ##################################################
+        # ALERT PRIORITY
+        ##################################################
 
         priority = {
 
@@ -225,10 +258,6 @@ class AlertOverlay:
 
         }
 
-        ################################################
-        # Sort highest priority first
-        ################################################
-
         sorted_alerts = sorted(
 
             self.active_alerts,
@@ -236,21 +265,13 @@ class AlertOverlay:
             key=lambda alert:
 
             priority.get(
-
                 alert.get(
                     "severity",
                     "LOW"
                 ),
-
                 3
-
             )
-
         )
-
-        ################################################
-        # Limit alerts
-        ################################################
 
         sorted_alerts = (
             sorted_alerts[
@@ -258,9 +279,9 @@ class AlertOverlay:
             ]
         )
 
-        ################################################
-        # Background
-        ################################################
+        ##################################################
+        # BACKGROUND
+        ##################################################
 
         overlay = frame.copy()
 
@@ -283,7 +304,6 @@ class AlertOverlay:
             (30, 30, 30),
 
             -1
-
         )
 
         alpha = 0.55
@@ -301,12 +321,11 @@ class AlertOverlay:
             0,
 
             frame
-
         )
 
-        ################################################
-        # Title
-        ################################################
+        ##################################################
+        # TITLE
+        ##################################################
 
         cv2.putText(
 
@@ -323,38 +342,29 @@ class AlertOverlay:
             (255, 255, 255),
 
             2
-
         )
 
-        ################################################
-        # Alerts
-        ################################################
+        ##################################################
+        # DRAW ALERTS
+        ##################################################
 
         y = 85
 
         for alert in sorted_alerts:
 
             severity = alert.get(
-
                 "severity",
-
                 "LOW"
-
             )
 
-            ################################################
-            # Alert color
-            ################################################
+            ##################################################
+            # COLOR
+            ##################################################
 
-            if severity == "CRITICAL":
-
-                color = (
-                    0,
-                    0,
-                    255
-                )
-
-            elif severity == "HIGH":
+            if severity in (
+                "CRITICAL",
+                "HIGH"
+            ):
 
                 color = (
                     0,
@@ -381,9 +391,9 @@ class AlertOverlay:
                     255
                 )
 
-            ################################################
-            # Indicator
-            ################################################
+            ##################################################
+            # INDICATOR
+            ##################################################
 
             cv2.circle(
 
@@ -399,16 +409,16 @@ class AlertOverlay:
                 color,
 
                 -1
-
             )
 
-            ################################################
-            # Text
-            ################################################
+            ##################################################
+            # TEXT
+            ##################################################
 
-            text = alert[
-                "type"
-            ]
+            text = alert.get(
+                "type",
+                "Alert"
+            )
 
             if "person_id" in alert:
 
@@ -417,7 +427,11 @@ class AlertOverlay:
                     f"{alert['person_id']}"
                 )
 
-            elif "person1" in alert:
+            elif (
+                "person1" in alert
+                and
+                "person2" in alert
+            ):
 
                 text += (
 
@@ -426,7 +440,6 @@ class AlertOverlay:
 
                     f" & "
                     f"{alert['person2']}"
-
                 )
 
             cv2.putText(
@@ -447,7 +460,6 @@ class AlertOverlay:
                 (255, 255, 255),
 
                 2
-
             )
 
             y += 30
