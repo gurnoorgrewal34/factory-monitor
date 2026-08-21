@@ -42,6 +42,7 @@ from api.websocket_manager import (
     WebSocketManager,
 )
 
+from fastapi.middleware.cors import CORSMiddleware
 
 # ==================================================
 # PROJECT PATHS
