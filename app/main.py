@@ -35,8 +35,8 @@ print("========================================")
 
 orchestrator = Orchestrator()
 orchestrator.set_modules([
-    "smoking"
-])
+    "smoking", "pose", "sleep"
+]) 
 
 
 tracker = PersonTracker()
@@ -183,7 +183,7 @@ os.makedirs(
 
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR,
-    "check3.mp4"
+    "check24.mp4"
 )
 
 

@@ -155,9 +155,16 @@ class CameraRuntime:
             ["all"]
         )
 
+        print(
+            "3. CAMERA RUNTIME MODULES ->",
+            modules
+        )
+
         orchestrator.set_modules(
             modules
         )
+        
+        
 
         ##################################################
         # SOURCE

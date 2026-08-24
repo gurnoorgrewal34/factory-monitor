@@ -28,3 +28,7 @@ custom_bytetrack.yaml
 # Temporary local zone notes
 zones_json_per.txt
 zones_tem_json.txt
+
+
+
+.env

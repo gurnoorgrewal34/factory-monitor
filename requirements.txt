@@ -1,7 +1,14 @@
 fastapi
 uvicorn[standard]
+
 opencv-python
 ultralytics
 numpy
+
 pydantic
 websockets
+
+sqlalchemy
+psycopg[binary]
+alembic
+python-dotenv
