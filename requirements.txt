@@ -12,3 +12,9 @@ sqlalchemy
 psycopg[binary]
 alembic
 python-dotenv
+
+
+
+paddleocr
+paddlepaddle
+huggingface-hub

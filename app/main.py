@@ -35,7 +35,7 @@ print("========================================")
 
 orchestrator = Orchestrator()
 orchestrator.set_modules([
-    "smoking", "pose", "sleep"
+    "vehicle"
 ]) 
 
 
@@ -56,7 +56,8 @@ zone_drawer = ZoneDrawer(
 
 
 behaviour = BehaviourEngine(
-    zone_engine
+    zone_engine,
+    orchestrator
 )
 
 
@@ -136,6 +137,28 @@ print()
 
 #debug over
 
+# ==================================================
+# CAMERA ID FOR STANDALONE TESTING
+#
+# API runtime will use the real registered camera ID.
+# app.main needs a local identifier for vehicle logs.
+# ==================================================
+
+if INPUT_SOURCE == "video":
+
+    camera_id = "VIDEO_TEST"
+
+elif INPUT_SOURCE == "webcam":
+
+    camera_id = f"WEBCAM_{WEBCAM_INDEX}"
+
+elif INPUT_SOURCE == "cctv":
+
+    camera_id = "CCTV_TEST"
+
+else:
+
+    camera_id = "UNKNOWN_SOURCE"
 
 # ==================================================
 # FPS
@@ -157,7 +180,9 @@ frame_processor = FrameProcessor(
     alert_overlay,
     behaviour,
     orchestrator,
-    fps=fps
+    fps=fps,
+    source_type=INPUT_SOURCE,
+    camera_id=camera_id,
 )
 
 
@@ -183,7 +208,7 @@ os.makedirs(
 
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR,
-    "check24.mp4"
+    "testing_vh_26082025.mp4"
 )
 
 

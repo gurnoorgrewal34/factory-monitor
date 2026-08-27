@@ -44,24 +44,24 @@ class RunningBehaviour:
         # ZONE POLICY
         # ==================================================
 
-        rules = person.get("zone_rules") or {}
+        # rules = person.get("zone_rules") or {}
 
-        running_allowed = rules.get(
-            "running_allowed",
-            False
-        )
+        # running_allowed = rules.get(
+        #     "running_allowed",
+        #     False
+        # )
 
-        if running_allowed:
+        # if running_allowed:
 
-            person["running_frames"] = 0
-            person["running_alerted"] = False
+        #     person["running_frames"] = 0
+        #     person["running_alerted"] = False
 
-            self.alert_manager.clear(
-                person_id,
-                "Running"
-            )
+        #     self.alert_manager.clear(
+        #         person_id,
+        #         "Running"
+        #     )
 
-            return None
+        #     return None
 
         # ==================================================
         # RUNNING DECISION

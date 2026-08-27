@@ -1,4 +1,4 @@
-from sqlalchemy import text
+from sqlalchemy import func
 
 from database.database import (
     SessionLocal,
@@ -35,14 +35,12 @@ class CameraRepository:
             "enabled":
                 camera.enabled,
 
-
             # ------------------------------------------
             # SOURCE
             # ------------------------------------------
 
             "source_type":
                 camera.source_type,
-
 
             # ------------------------------------------
             # CCTV
@@ -72,7 +70,6 @@ class CameraRepository:
             "cctv_url":
                 camera.rtsp_url,
 
-
             # ------------------------------------------
             # VIDEO / WEBCAM
             # ------------------------------------------
@@ -83,7 +80,6 @@ class CameraRepository:
             "webcam_index":
                 camera.webcam_index,
 
-
             # ------------------------------------------
             # AI MODULES
             # ------------------------------------------
@@ -93,7 +89,6 @@ class CameraRepository:
                 or
                 ["all"],
 
-
             # ------------------------------------------
             # OUTPUT
             # ------------------------------------------
@@ -101,18 +96,16 @@ class CameraRepository:
             "save_output":
                 camera.save_output,
 
-
             # ------------------------------------------
             # ZONES
-            #
-            # Temporary until zone API/database
-            # migration is implemented.
             # ------------------------------------------
 
             "zones_file":
-                "zones/zones.json",
+                (
+                    f"zones/data/"
+                    f"{camera.id}.json"
+                ),
         }
-
 
     # ==================================================
     # LIST
@@ -147,9 +140,15 @@ class CameraRepository:
                 in cameras
             ]
 
-
     # ==================================================
-    # GET
+    # GET BY ID
+    #
+    # NOTE:
+    # camera_id is now the user-entered camera name.
+    #
+    # Example:
+    #
+    # camera_id = "Main Gate"
     # ==================================================
 
     def get_by_id(
@@ -182,19 +181,24 @@ class CameraRepository:
                 camera
             )
 
-
     # ==================================================
     # CREATE
     #
-    # Camera ID generation happens here.
+    # User-entered camera name becomes the
+    # PUBLIC CAMERA ID.
     #
-    # Database sequence:
+    # Example:
     #
-    # 1 -> CAM001
-    # 2 -> CAM002
-    # 3 -> CAM003
+    # Frontend:
+    # name = "Main Gate"
     #
-    # This is safe across server restarts.
+    # Database:
+    #
+    # db_id = 1          <- PostgreSQL
+    # id    = Main Gate  <- Public ID
+    # name  = Main Gate
+    #
+    # No CAM001 / CAM002 generation anymore.
     # ==================================================
 
     def create(
@@ -205,36 +209,55 @@ class CameraRepository:
         with SessionLocal() as db:
 
             # ==========================================
-            # GET NEXT DATABASE SEQUENCE VALUE
+            # GET CAMERA NAME
             # ==========================================
 
-            next_db_id = (
-                db.execute(
-                    text(
-                        "SELECT nextval("
-                        "pg_get_serial_sequence("
-                        "'cameras', "
-                        "'db_id'"
-                        ")"
-                        ")"
-                    )
+            raw_camera_name = (
+                config.get(
+                    "name"
                 )
-                .scalar_one()
+                or
+                ""
             )
 
-
             # ==========================================
-            # CREATE SIMPLE PUBLIC CAMERA ID
+            # NORMALIZE WHITESPACE ONLY
+            #
+            # "  Main   Gate  "
+            #
+            # becomes:
+            #
+            # "Main Gate"
+            #
+            # Capitalization is preserved.
             # ==========================================
 
             camera_id = (
-                f"CAM"
-                f"{next_db_id:03d}"
+                " ".join(
+                    raw_camera_name
+                    .strip()
+                    .split()
+                )
             )
 
+            if not camera_id:
+
+                raise ValueError(
+                    "Camera name is required."
+                )
 
             # ==========================================
-            # SAFETY CHECK
+            # DUPLICATE CHECK
+            #
+            # Case-insensitive comparison.
+            #
+            # These are considered duplicates:
+            #
+            # Main Gate
+            # main gate
+            # MAIN GATE
+            #
+            # But original capitalization is stored.
             # ==========================================
 
             existing = (
@@ -244,9 +267,11 @@ class CameraRepository:
                 )
 
                 .filter(
-                    Camera.id
+                    func.lower(
+                        Camera.id
+                    )
                     ==
-                    camera_id
+                    camera_id.lower()
                 )
 
                 .first()
@@ -259,41 +284,37 @@ class CameraRepository:
                     f"{camera_id}"
                 )
 
-
             # ==========================================
-            # CREATE DATABASE CAMERA
+            # CREATE CAMERA
+            #
+            # IMPORTANT:
+            #
+            # db_id is NOT manually provided.
+            #
+            # PostgreSQL automatically generates it.
             # ==========================================
 
             camera = Camera(
 
                 # --------------------------------------
-                # Database-generated internal sequence
-                # --------------------------------------
-
-                db_id=
-                    next_db_id,
-
-
-                # --------------------------------------
-                # Public ID
+                # PUBLIC CAMERA ID
                 # --------------------------------------
 
                 id=
                     camera_id,
 
-
                 # --------------------------------------
-                # Identity
+                # CAMERA NAME
+                #
+                # Keep same value for compatibility
+                # with existing code.
                 # --------------------------------------
 
                 name=
-                    config[
-                        "name"
-                    ],
-
+                    camera_id,
 
                 # --------------------------------------
-                # Source
+                # SOURCE
                 # --------------------------------------
 
                 source_type=
@@ -301,7 +322,6 @@ class CameraRepository:
                         "source_type",
                         "cctv"
                     ),
-
 
                 # --------------------------------------
                 # CCTV
@@ -349,9 +369,8 @@ class CameraRepository:
                         "cctv_url"
                     ),
 
-
                 # --------------------------------------
-                # Video / Webcam
+                # VIDEO / WEBCAM
                 # --------------------------------------
 
                 video_path=
@@ -364,9 +383,8 @@ class CameraRepository:
                         "webcam_index"
                     ),
 
-
                 # --------------------------------------
-                # AI
+                # AI MODULES
                 # --------------------------------------
 
                 modules=
@@ -375,9 +393,8 @@ class CameraRepository:
                         ["all"]
                     ),
 
-
                 # --------------------------------------
-                # Settings
+                # SETTINGS
                 # --------------------------------------
 
                 enabled=
@@ -393,24 +410,19 @@ class CameraRepository:
                     ),
             )
 
-
             db.add(
                 camera
             )
 
-
             db.commit()
-
 
             db.refresh(
                 camera
             )
 
-
             return self.to_config(
                 camera
             )
-
 
     # ==================================================
     # UPDATE
@@ -439,14 +451,12 @@ class CameraRepository:
                 .first()
             )
 
-
             if camera is None:
 
                 raise ValueError(
                     f"Unknown camera: "
                     f"{camera_id}"
                 )
-
 
             # ==========================================
             # FIELD MAPPING
@@ -500,7 +510,6 @@ class CameraRepository:
                     "save_output",
             }
 
-
             for (
                 config_key,
                 model_key
@@ -513,36 +522,27 @@ class CameraRepository:
 
                     continue
 
-
                 value = (
                     updates[
                         config_key
                     ]
                 )
 
-
                 setattr(
-
                     camera,
-
                     model_key,
-
                     value
                 )
 
-
             db.commit()
-
 
             db.refresh(
                 camera
             )
 
-
             return self.to_config(
                 camera
             )
-
 
     # ==================================================
     # DELETE
@@ -570,7 +570,6 @@ class CameraRepository:
                 .first()
             )
 
-
             if camera is None:
 
                 raise ValueError(
@@ -578,13 +577,10 @@ class CameraRepository:
                     f"{camera_id}"
                 )
 
-
             db.delete(
                 camera
             )
 
-
             db.commit()
-
 
             return True

@@ -228,19 +228,19 @@ class PhoneBehaviour:
 
                 continue
 
-            # ------------------------------------------
-            # Zone policy
-            # ------------------------------------------
+            # # ------------------------------------------
+            # # Zone policy
+            # # ------------------------------------------
 
-            rules = best_person.get(
-                "zone_rules",
-                {}
-            )
+            # rules = best_person.get(
+            #     "zone_rules",
+            #     {}
+            # )
 
-            # Phone allowed in this zone
-            if rules.get("phone_allowed", True):
+            # # Phone allowed in this zone
+            # if rules.get("phone_allowed", True):
 
-                continue
+            #     continue
 
             # ------------------------------------------
             # Valid phone detection

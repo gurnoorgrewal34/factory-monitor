@@ -58,62 +58,256 @@ class BehaviourEngine:
     # Individual Behaviours
     ####################################################
 
+    # def process(self, person):
+
+    #     alerts = []
+
+    #     zone = person["zone"]
+
+    #     # ==================================================
+    #     # RESTRICTED AREA
+    #     # ==================================================
+
+    #     if (
+    #         self.orchestrator is not None
+    #         and
+    #         self.orchestrator.enabled("restricted")
+    #         and
+    #         self.zone_policy.allows(zone, "restricted")
+    #     ):
+
+    #         alert = self.restricted.check(person)
+
+    #         if alert is not None:
+    #             alerts.append(alert)
+
+    #     # ==================================================
+    #     # LOITERING
+    #     # ==================================================
+
+    #     if (
+    #         self.orchestrator is not None
+    #         and
+    #         self.orchestrator.enabled("loitering")
+    #         and
+    #         self.zone_policy.allows(zone, "loitering")
+    #     ):
+
+    #         alert = self.loitering.check(person)
+
+    #         if alert is not None:
+    #             alerts.append(alert)
+
+    #     # ==================================================
+    #     # ACTIVITY
+    #     # ==================================================
+
+    #     if (
+    #         self.orchestrator is not None
+    #         and
+    #         self.orchestrator.enabled("activity")
+    #     ):
+
+    #         self.activity.check(person)
+
+    #     # ==================================================
+    #     # IDLE
+    #     # ==================================================
+
+    #     if (
+    #         self.orchestrator is not None
+    #         and
+    #         self.orchestrator.enabled("idle")
+    #     ):
+
+    #         alert = self.idle.check(person)
+
+    #         if alert is not None:
+    #             alerts.append(alert)
+
+    #     # ==================================================
+    #     # RUNNING
+    #     # ==================================================
+
+    #     if (
+    #         self.orchestrator is not None
+    #         and
+    #         self.orchestrator.enabled("running")
+    #         and
+    #         RUNNING_ENABLED
+    #     ):
+
+    #         alert = self.running.check(person)
+
+    #         if alert is not None:
+    #             alerts.append(alert)
+
+    #     return alerts
+    
+    
+    
     def process(self, person):
 
         alerts = []
 
-        zone = person["zone"]
+        zone = person.get(
+            "zone",
+            "Unknown"
+        )
 
-        ####################################################
-        # Restricted Area
-        ####################################################
+        # ==================================================
+        # RESTRICTED AREA
+        # ==================================================
 
-        if self.zone_policy.allows(zone, "restricted"):
+        # if (
+        #     self.orchestrator is not None
+        #     and
+        #     self.orchestrator.enabled(
+        #         "restricted"
+        #     )
+        # ):
 
-            alert = self.restricted.check(person)
+        #     is_restricted = (
+        #         self.zone_policy
+        #         .is_restricted(
+        #             zone
+        #         )
+        #     )
 
-            if alert is not None:
-                alerts.append(alert)
+        #     alert = (
+        #         self.restricted
+        #         .check(
+        #             person,
+        #             is_restricted=
+        #                 is_restricted
+        #         )
+        #     )
 
-        ####################################################
-        # Loitering
-        ####################################################
+        #     if alert is not None:
 
-        if self.zone_policy.allows(zone, "loitering"):
-
-            alert = self.loitering.check(person)
-
-            if alert is not None:
-                alerts.append(alert)
-
-        ####################################################
-        # Activity Status
-        ####################################################
-
-        self.activity.check(person)
+        #         alerts.append(
+        #             alert
+        #         )
         
-        ####################################################
-        # Idle Behaviour
-        ####################################################
-
-        alert = self.idle.check(person)
-
-        if alert is not None:
-            alerts.append(alert)
-            
-            
-    
         
-        ####################################################
-        # Running
-        ####################################################
-        if RUNNING_ENABLED:
+        
+        # ==================================================
+        # RESTRICTED AREA
+        # ==================================================
 
-            alert = self.running.check(person)
+        if (
+            self.orchestrator is not None
+            and
+            self.orchestrator.enabled(
+                "restricted"
+            )
+        ):
+
+            alert = (
+                self.restricted
+                .check(
+                    person
+                )
+            )
 
             if alert is not None:
-                 alerts.append(alert)
-            
+
+                alerts.append(
+                    alert
+                )
+
+        # ==================================================
+        # LOITERING
+        # ==================================================
+
+        if (
+            self.orchestrator is not None
+            and
+            self.orchestrator.enabled(
+                "loitering"
+            )
+        ):
+
+            alert = (
+                self.loitering
+                .check(
+                    person
+                )
+            )
+
+            if alert is not None:
+
+                alerts.append(
+                    alert
+                )
+
+        # ==================================================
+        # ACTIVITY
+        # ==================================================
+
+        if (
+            self.orchestrator is not None
+            and
+            self.orchestrator.enabled(
+                "activity"
+            )
+        ):
+
+            self.activity.check(
+                person
+            )
+
+        # ==================================================
+        # IDLE
+        # ==================================================
+
+        if (
+            self.orchestrator is not None
+            and
+            self.orchestrator.enabled(
+                "idle"
+            )
+        ):
+
+            alert = (
+                self.idle
+                .check(
+                    person
+                )
+            )
+
+            if alert is not None:
+
+                alerts.append(
+                    alert
+                )
+
+        # ==================================================
+        # RUNNING
+        # ==================================================
+
+        if (
+            self.orchestrator is not None
+            and
+            self.orchestrator.enabled(
+                "running"
+            )
+            and
+            RUNNING_ENABLED
+        ):
+
+            alert = (
+                self.running
+                .check(
+                    person
+                )
+            )
+
+            if alert is not None:
+
+                alerts.append(
+                    alert
+                )
 
         return alerts
 

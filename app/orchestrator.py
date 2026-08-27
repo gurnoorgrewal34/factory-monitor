@@ -25,7 +25,9 @@ class Orchestrator:
             "idle",
             "activity",
 
-            "after_shift"
+            "after_shift",
+            "vehicle",
+            "suspicious_theft"
         }
 
         ##################################################

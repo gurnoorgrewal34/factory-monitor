@@ -53,29 +53,18 @@ class SocialLoiteringBehaviour:
 
                 pair = tuple(sorted((id1, id2)))
 
-                # ==================================================
-                # ZONE
-                # ==================================================
+                # zones
+                zone1 = p1.get(
+                    "zone",
+                    "Unknown"
+                )
 
-                zone1 = p1.get("zone", "Unknown")
-                zone2 = p2.get("zone", "Unknown")
-
-                if zone1 == "Unknown" or zone2 == "Unknown":
-                    continue
+                zone2 = p2.get(
+                    "zone",
+                    "Unknown"
+                )
 
                 if zone1 != zone2:
-                    continue
-
-                # ==================================================
-                # ZONE POLICY
-                # ==================================================
-
-                zone_rules = p1.get("zone_rules", {})
-
-                if zone_rules.get(
-                    "loitering_allowed",
-                    False
-                ):
                     continue
 
                 # ==================================================

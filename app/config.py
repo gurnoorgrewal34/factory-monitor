@@ -56,7 +56,7 @@ VIDEO_PATH = os.path.join(
     BASE_DIR,
     "datasets",
     "raw_videos",
-    "test_3.mp4"
+    "car_num6.mp4"
 )
 
 
@@ -266,3 +266,35 @@ FALL_FRAME_INTERVAL = 2
 
 # General pose detector
 POSE_FRAME_INTERVAL = 2
+
+
+##################################################
+# VEHICLE + LICENSE PLATE DETECTION
+##################################################
+
+VEHICLE_CONFIDENCE = 0.40
+
+VEHICLE_PLATE_CONFIDENCE = 0.25
+
+VEHICLE_OCR_CONFIDENCE = 0.50
+
+VEHICLE_IMAGE_SIZE = 640
+
+VEHICLE_OCR_INTERVAL = 10
+
+VEHICLE_TRACK_IOU = 0.30
+
+VEHICLE_TRACK_MAX_MISSED = 15
+
+VEHICLE_PLATE_VARIANT = "n"
+
+VEHICLE_OCR_LANGUAGE = "en"
+
+VEHICLE_ROTATED_PLATES = False
+
+
+##################################################
+# VEHICLE PROCESSING SCHEDULING
+##################################################
+
+VEHICLE_FRAME_INTERVAL = 2

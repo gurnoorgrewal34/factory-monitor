@@ -4,8 +4,11 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Integer,
+    Index,
     String,
     Text,
+    Float,
+    UniqueConstraint,
 )
 
 from sqlalchemy.dialects.postgresql import (
@@ -46,27 +49,24 @@ class Camera(Base):
         autoincrement=True
     )
 
-
-    # ==================================================
-    # PUBLIC CAMERA ID
-    #
-    # Examples:
-    #
-    # CAM001
-    # CAM002
-    # CAM003
-    #
-    # This is the ID used by:
-    #
-    # API
-    # Frontend
-    # CameraManager
-    # CameraRuntime
-    # ==================================================
+# ==================================================
+# PUBLIC CAMERA ID
+#
+# The user-entered camera name itself is used
+# as the public camera ID.
+#
+# Examples:
+#
+# "Main Gate"
+# "Production Camera"
+# "Loading Area Camera"
+#
+# db_id remains the internal PostgreSQL key.
+# ==================================================
 
     id: Mapped[str] = mapped_column(
 
-        String(20),
+        String(150),
 
         unique=True,
 
@@ -285,4 +285,121 @@ class Camera(Base):
         default=datetime.utcnow,
 
         onupdate=datetime.utcnow
+    )
+    
+    
+    
+class VehicleLog(Base):
+
+    __tablename__ = "vehicle_logs"
+    
+    
+    
+    __table_args__ = (
+
+        UniqueConstraint(
+            "camera_id",
+            "session_id",
+            "vehicle_track_id",
+            name="uq_vehicle_runtime_track"
+        ),
+
+        Index(
+            "ix_vehicle_logs_camera_plate_seen",
+            "camera_id",
+            "plate_number",
+            "last_seen_at"
+        ),
+    )
+
+    # ==================================================
+    # INTERNAL DATABASE ID
+    # ==================================================
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+
+    # ==================================================
+    # CAMERA
+    # ==================================================
+
+    camera_id: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+        index=True
+    )
+
+    # ==================================================
+    # RUNTIME SESSION
+    #
+    # Important because vehicle_track_id starts again
+    # when a camera/runtime is restarted.
+    # ==================================================
+
+    session_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True
+    )
+
+    # ==================================================
+    # VEHICLE TRACK
+    #
+    # Runtime ID only.
+    # Do NOT treat this as permanent identity.
+    # ==================================================
+
+    vehicle_track_id: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False
+    )
+
+    vehicle_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+
+    # ==================================================
+    # NUMBER PLATE
+    # ==================================================
+
+    plate_number: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        index=True
+    )
+
+    plate_confidence: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True
+    )
+
+    # ==================================================
+    # LAST KNOWN BOUNDING BOX
+    # ==================================================
+
+    bbox: Mapped[list | None] = mapped_column(
+        JSONB,
+        nullable=True
+    )
+
+    # ==================================================
+    # TIMESTAMPS
+    # ==================================================
+
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        index=True
+    )
+
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        index=True
     )

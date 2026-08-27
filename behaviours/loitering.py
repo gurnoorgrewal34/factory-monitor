@@ -3,54 +3,79 @@ from app.config import LOITERING_TIME
 
 class LoiteringBehaviour:
 
-    def check(self, person):
+    def check(
+        self,
+        person
+    ):
 
         ####################################################
-        # Ignore unknown zone
+        # ALREADY ALERTED
         ####################################################
 
-        if person["zone"] == "Unknown":
+        if person.get(
+            "loitering_alerted",
+            False
+        ):
+
             return None
 
         ####################################################
-        # Zone Policy
+        # TIME IN CURRENT AREA
+        #
+        # Works even when zone == "Unknown".
+        #
+        # If a real zone exists, its zone_time is used.
+        # If no zone exists, "Unknown" effectively acts as
+        # the camera's default/global area.
         ####################################################
 
-        rules = person.get("zone_rules", {})
-
-        # Loitering is allowed here (Parking, Cafeteria, etc.)
-        if rules.get("loitering_allowed", False):
-            return None
-
-        ####################################################
-        # Already alerted
-        ####################################################
-
-        if person.get("loitering_alerted", False):
-            return None
+        loitering_time = float(
+            person.get(
+                "zone_time",
+                0.0
+            )
+        )
 
         ####################################################
-        # Time exceeded
+        # TIME EXCEEDED
         ####################################################
 
-        if person["zone_time"] >= LOITERING_TIME:
+        if (
+            loitering_time
+            >=
+            LOITERING_TIME
+        ):
 
-            person["status"] = "Loitering"
+            person[
+                "status"
+            ] = "Loitering"
 
-            person["loitering_alerted"] = True
+            person[
+                "loitering_alerted"
+            ] = True
 
             return {
 
-                "type": "Loitering",
+                "type":
+                    "Loitering",
 
-                "person_id": person["id"],
+                "person_id":
+                    person["id"],
 
-                "zone": person["zone"],
+                "zone":
+                    person.get(
+                        "zone",
+                        "Unknown"
+                    ),
 
-                "time": round(person["zone_time"], 1),
+                "time":
+                    round(
+                        loitering_time,
+                        1
+                    ),
 
-                "severity": "MEDIUM"
-
+                "severity":
+                    "MEDIUM"
             }
 
         return None

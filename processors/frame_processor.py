@@ -11,17 +11,46 @@ from detectors.fall_detector import FallDetector
 
 from engine.sleep_engine import SleepEngine
 
+
+from processors.vehicle_processor import (
+    VehicleProcessor,
+)
+
+
 from app.config import (
     POSE_MODEL_PATH,
     INPUT_SOURCE,
     AFTER_SHIFT_VIDEO_START_TIME,
     AFTER_SHIFT_BASE_DATE,
+    
+    MODEL_PATH,
+
+    VEHICLE_CONFIDENCE,
+    VEHICLE_PLATE_CONFIDENCE,
+    VEHICLE_OCR_CONFIDENCE,
+    VEHICLE_IMAGE_SIZE,
+    VEHICLE_OCR_INTERVAL,
+    VEHICLE_TRACK_IOU,
+    VEHICLE_TRACK_MAX_MISSED,
+    VEHICLE_PLATE_VARIANT,
+    VEHICLE_OCR_LANGUAGE,
+    VEHICLE_ROTATED_PLATES,
+    VEHICLE_FRAME_INTERVAL,
 )
+
 
 from datetime import datetime, timedelta
 import cv2
 import time
 from collections import defaultdict
+
+
+# new changes for vehicle logs only
+import uuid
+
+from database.vehicle_log_repository import (
+    VehicleLogRepository,
+)
 
 class FrameProcessor:
 
@@ -45,7 +74,9 @@ class FrameProcessor:
 
         orchestrator,
 
-        fps=30.0
+        fps=30.0,
+        source_type="video",
+        camera_id="unknown"
 
     ):
 
@@ -64,6 +95,23 @@ class FrameProcessor:
         self.behaviour = behaviour
 
         self.orchestrator = orchestrator
+        
+        
+        # for vehicle logs
+        
+        self.camera_id = camera_id
+
+        # Unique ID for this running monitoring session.
+        # A restart creates a new session.
+        self.vehicle_session_id = uuid.uuid4().hex
+
+        self.vehicle_log_repository = VehicleLogRepository()
+
+        print(
+            "VEHICLE LOG SESSION ->",
+            self.camera_id,
+            self.vehicle_session_id
+        )
 
         # ------------------------------------------------
         # FPS
@@ -102,8 +150,11 @@ class FrameProcessor:
 
         self.perf_report_every = 30
         
-        
-        
+        self.source_type = (
+            source_type
+            or "video"
+        ).lower().strip()
+                
         ##################################################
         # PHASE-1 PERFORMANCE SCHEDULING
         #
@@ -162,6 +213,10 @@ class FrameProcessor:
         self.pose_processor = None
 
         self.pose_matcher = None
+        
+        
+        
+        self.vehicle_processor = None
 
         ##################################################
         # CONDITIONAL MODEL LOADING
@@ -307,7 +362,52 @@ class FrameProcessor:
 
             )
               
+        if self.orchestrator.enabled(
+            "vehicle"
+        ):
 
+            print(
+                "FRAME PROCESSOR -> "
+                "Loading VEHICLE module"
+            )
+
+            self.vehicle_processor = (
+                VehicleProcessor(
+
+                    vehicle_model_path=
+                        MODEL_PATH,
+
+                    plate_variant=
+                        VEHICLE_PLATE_VARIANT,
+
+                    conf_vehicle=
+                        VEHICLE_CONFIDENCE,
+
+                    conf_plate=
+                        VEHICLE_PLATE_CONFIDENCE,
+
+                    min_ocr_conf=
+                        VEHICLE_OCR_CONFIDENCE,
+
+                    image_size=
+                        VEHICLE_IMAGE_SIZE,
+
+                    ocr_language=
+                        VEHICLE_OCR_LANGUAGE,
+
+                    rotated_plates=
+                        VEHICLE_ROTATED_PLATES,
+
+                    ocr_interval=
+                        VEHICLE_OCR_INTERVAL,
+
+                    track_iou=
+                        VEHICLE_TRACK_IOU,
+
+                    track_max_missed=
+                        VEHICLE_TRACK_MAX_MISSED
+                )
+            )
         ##################################################
         # Initialization complete
         ##################################################
@@ -371,9 +471,13 @@ class FrameProcessor:
     def _get_frame_time(self, frame_idx):
 
         # Live sources use real wall-clock time.
-        if INPUT_SOURCE in ("webcam", "cctv", "rtsp"):
+        if self.source_type in (
+                "webcam",
+                "cctv",
+                "rtsp"
+            ):
 
-            return datetime.now()
+                return datetime.now()
 
         # Video files use the configured video-start clock
         # plus the frame timeline.
@@ -451,7 +555,8 @@ class FrameProcessor:
             "pose",
 
             "sleep",
-
+            
+            "vehicle",
             "total"
         ]
 
@@ -523,15 +628,43 @@ class FrameProcessor:
             "========================================"
         )
         print()
+        
+        
     ############################################################
     # PROCESS FRAME
     ############################################################
 
     def process(self, frame):
         
-        
+        # ==================================================
+        # OUTPUT FRAME MUST ALWAYS EXIST
+        # ==================================================
+
+        annotated = frame.copy()
+
         total_start = time.perf_counter()
+
         current_frame_idx = self.frame_idx
+
+        # ==================================================
+        # TEMPORARY CCTV INPUT DEBUG
+        # Remove after root cause is found.
+        # ==================================================
+
+        if current_frame_idx % 100 == 0:
+
+            print(
+                "SAVING AI INPUT FRAME ->",
+                current_frame_idx,
+                frame.shape,
+                frame.dtype
+            )
+
+            cv2.imwrite(
+                f"debug_ai_input_{current_frame_idx}.jpg",
+                frame
+            )
+    
 
         frame_time = self._get_frame_time(
             current_frame_idx
@@ -560,8 +693,317 @@ class FrameProcessor:
         result = results[0]
 
         boxes = result.boxes
+        
+        # ==================================================
+        # TEMPORARY RAW YOLO VS TRACKER TEST
+        # ==================================================
 
-        annotated = frame.copy()
+        if current_frame_idx % 30 == 0:
+
+            debug_results = (
+                self.tracker
+                .detect_debug(
+                    frame
+                )
+            )
+
+            debug_boxes = (
+                debug_results[0]
+                .boxes
+            )
+
+            track_box_count = (
+                len(boxes)
+                if boxes is not None
+                else 0
+            )
+
+            predict_box_count = (
+                len(debug_boxes)
+                if debug_boxes is not None
+                else 0
+            )
+
+            print()
+            print(
+                "========================================"
+            )
+
+            print(
+                "RAW PERSON DETECTION TEST"
+            )
+
+            print(
+                "Source:",
+                self.source_type
+            )
+
+            print(
+                "Track boxes:",
+                track_box_count
+            )
+
+            print(
+                "Predict boxes:",
+                predict_box_count
+            )
+
+            if (
+                debug_boxes is not None
+                and
+                len(debug_boxes) > 0
+            ):
+
+                print(
+                    "Predict confidences:",
+                    debug_boxes
+                    .conf
+                    .cpu()
+                    .tolist()
+                )
+
+                print(
+                    "Predict classes:",
+                    debug_boxes
+                    .cls
+                    .int()
+                    .cpu()
+                    .tolist()
+                )
+
+            print(
+                "========================================"
+            )
+        # ==================================================
+        # TEMPORARY LIVE AI DEBUG
+        # ==================================================
+
+        if current_frame_idx % 30 == 0:
+
+            detection_count = (
+                len(boxes)
+                if boxes is not None
+                else 0
+            )
+
+            track_ids = None
+
+            if (
+                boxes is not None
+                and
+                boxes.id is not None
+            ):
+
+                track_ids = (
+                    boxes.id
+                    .int()
+                    .cpu()
+                    .tolist()
+                )
+
+            print()
+            print("========== LIVE AI DEBUG ==========")
+            print(
+                "Frame:",
+                current_frame_idx
+            )
+            print(
+                "Source:",
+                self.source_type
+            )
+            print(
+                "Selected modules:",
+                self.orchestrator.active_modules()
+            )
+            print(
+                "Person detections:",
+                detection_count
+            )
+            print(
+                "Tracking IDs:",
+                track_ids
+            )
+            print(
+                "Frame shape:",
+                frame.shape
+            )
+            print("===================================")
+
+            
+        
+        
+        
+        
+        ##################################################
+        # VEHICLE + LICENSE PLATE MODULE
+        #
+        # IMPORTANT:
+        #
+        # At this point `annotated` is still only a clean
+        # copy of the original camera frame.
+        #
+        # So VehicleProcessor gets a clean image before:
+        #
+        # - zones
+        # - person boxes
+        # - helmet drawings
+        # - alerts
+        #
+        # are drawn.
+        ##################################################
+
+        if (
+            self.orchestrator.enabled(
+                "vehicle"
+            )
+            and
+            self.vehicle_processor
+            is not None
+        ):
+
+            # ------------------------------------------------
+            # Run according to configured interval.
+            #
+            # IMPORTANT:
+            # Your current file uses current_frame_idx.
+            # Do NOT use self.frame_count because your class
+            # does not have self.frame_count.
+            # ------------------------------------------------
+
+            if (
+                current_frame_idx
+                %
+                VEHICLE_FRAME_INTERVAL
+                ==
+                0
+            ):
+
+                try:
+
+                    vehicle_start = (
+                        time.perf_counter()
+                    )
+
+                    annotated, vehicle_alerts = (
+                        self.vehicle_processor
+                        .process(
+                            annotated
+                        )
+                    )
+
+                    # ----------------------------------------
+                    # Performance measurement
+                    # ----------------------------------------
+
+                    self._perf_add(
+
+                        "vehicle",
+
+                        time.perf_counter()
+                        -
+                        vehicle_start
+                    )
+
+                    # ----------------------------------------
+                    # Send vehicle alerts through EXISTING
+                    # alert system.
+                    #
+                    # We do NOT create another alert system.
+                    # ----------------------------------------
+
+                    if vehicle_alerts:
+
+                        self.alert_overlay.update(
+                            vehicle_alerts
+                        )
+
+                        for alert in vehicle_alerts:
+
+                            print(
+                                "VEHICLE ALERT ->",
+                                alert
+                            )
+
+                            try:
+
+                                alert_type = alert.get("type")
+
+                                # ==============================================
+                                # Only persist meaningful vehicle events.
+                                # Do NOT save ordinary AI/debug logs.
+                                # ==============================================
+
+                                if alert_type in (
+                                    "vehicle_detected",
+                                    "number_plate_detected",
+                                ):
+
+                                    vehicle_track_id = alert.get(
+                                        "vehicle_id"
+                                    )
+
+                                    if vehicle_track_id is None:
+
+                                        print(
+                                            "VEHICLE DB SKIP -> "
+                                            "Missing vehicle_id"
+                                        )
+
+                                        continue
+
+                                    self.vehicle_log_repository.upsert_vehicle(
+
+                                        camera_id=self.camera_id,
+
+                                        session_id=self.vehicle_session_id,
+
+                                        vehicle_track_id=int(
+                                            vehicle_track_id
+                                        ),
+
+                                        vehicle_type=alert.get(
+                                            "vehicle_type",
+                                            "unknown"
+                                        ),
+
+                                        bbox=alert.get(
+                                            "bbox"
+                                        ),
+
+                                        plate_number=alert.get(
+                                            "plate"
+                                        ),
+
+                                        plate_confidence=alert.get(
+                                            "plate_confidence"
+                                        ),
+                                    )
+
+                            except Exception as db_exc:
+
+                                # VERY IMPORTANT:
+                                # Database logging failure must never
+                                # stop the AI monitoring pipeline.
+
+                                print(
+                                    "VEHICLE DB ERROR ->",
+                                    repr(db_exc)
+                                )
+
+                except Exception as exc:
+
+                    # ----------------------------------------
+                    # Very important:
+                    #
+                    # Vehicle module failure must NOT stop
+                    # helmet/fire/person tracking/etc.
+                    # ----------------------------------------
+
+                    print(
+                        "VEHICLE PROCESSOR ERROR ->",
+                        repr(exc)
+                    )
+
 
         ##################################################
         # TIMESTAMP / SHIFT STATUS
@@ -770,6 +1212,9 @@ class FrameProcessor:
                 - detector_start
             )
 
+        
+        
+        
         ##################################################
         # POSE MODEL
         ##################################################
@@ -1345,7 +1790,17 @@ class FrameProcessor:
 
         self._perf_report()
 
-
+        cv2.putText(
+            annotated,
+            "AI PIPELINE ACTIVE",
+            (30, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            (0, 255, 0),
+            2,
+            cv2.LINE_AA
+        )
+        
         return annotated
 
     ############################################################

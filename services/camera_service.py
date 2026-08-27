@@ -60,7 +60,19 @@ class CameraService:
                 "Camera name is required."
             )
 
+        # ==================================================
+        # CAMERA ID
+        #
+        # Camera name itself is now the public camera ID.
+        #
+        # Example:
+        # name = "Main Gate"
+        # id   = "Main Gate"
+        # ==================================================
 
+        camera_id = name
+        
+        
         # ==================================================
         # MODULES
         #
@@ -261,8 +273,8 @@ class CameraService:
             # IDENTITY
             # ----------------------------------------------
 
-            # "id":
-            #     camera_id,
+            "id":
+                camera_id,
 
             "name":
                 name,
@@ -350,8 +362,11 @@ class CameraService:
             # Temporary until zones move to database/API.
             # ----------------------------------------------
 
+            # Final per-camera zones_file is assigned
+            # by CameraRepository after camera ID generation.
+
             "zones_file":
-                "zones/zones.json",
+                None,
         }
 
 

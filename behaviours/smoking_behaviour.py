@@ -462,20 +462,20 @@ class SmokingBehaviour:
                     # Zone policy
                     ##################################################
 
-                    rules = (
-                        best_person.get(
-                            "zone_rules"
-                        )
-                        or {}
-                    )
+                    # rules = (
+                    #     best_person.get(
+                    #         "zone_rules"
+                    #     )
+                    #     or {}
+                    # )
 
-                    # Smoking is explicitly permitted here.
-                    if rules.get(
-                        "smoking_allowed",
-                        False
-                    ):
+                    # # Smoking is explicitly permitted here.
+                    # if rules.get(
+                    #     "smoking_allowed",
+                    #     False
+                    # ):
 
-                        continue
+                    #     continue
 
                     person_id = (
                         best_person["id"]
@@ -608,19 +608,19 @@ class SmokingBehaviour:
                 # Double-check zone policy using current state.
                 ##################################################
 
-                rules = (
-                    person.get(
-                        "zone_rules"
-                    )
-                    or {}
-                )
+                # rules = (
+                #     person.get(
+                #         "zone_rules"
+                #     )
+                #     or {}
+                # )
 
-                if rules.get(
-                    "smoking_allowed",
-                    False
-                ):
+                # if rules.get(
+                #     "smoking_allowed",
+                #     False
+                # ):
 
-                    continue
+                #     continue
 
                 if not state["alerted"]:
 

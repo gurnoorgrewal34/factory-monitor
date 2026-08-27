@@ -118,14 +118,40 @@ class DrawingProcessor:
         # Pose
         ####################################################
 
+        # cv2.putText(
+        #     frame,
+        #     f"Pose : {person['pose_state']}",
+        #     (x1, y1 - 85),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     0.30,    # 0.55 for normal, 0.30 for cam5
+        #     (255, 255, 0),
+        #     1        # 2 for normal, 1 for cam5
+        # )
+
+        
+        
+        
+        # changed after getting problem 25082026
+        
+        
+        ####################################################
+        # Pose
+        ####################################################
+
+        pose_state = person.get(
+            "pose_state",
+            "Unknown"
+        )
+
         cv2.putText(
             frame,
-            f"Pose : {person['pose_state']}",
+            f"Pose : {pose_state}",
             (x1, y1 - 85),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.30,    # 0.55 for normal, 0.30 for cam5
+            0.55,
             (255, 255, 0),
-            1        # 2 for normal, 1 for cam5
+            2,
+            cv2.LINE_AA
         )
 
         ####################################################
@@ -137,9 +163,9 @@ class DrawingProcessor:
             f"Zone : {person['zone']}",
             (x1, y1 - 60),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.30,    # 0.55 for normal, 0.30 for cam5   
+            0.55,    # 0.55 for normal, 0.30 for cam5   
             (255, 255, 0),
-            1        # 2 for normal, 1 for cam5
+            2        # 2 for normal, 1 for cam5
         )
 
         ####################################################
@@ -151,9 +177,9 @@ class DrawingProcessor:
             person["status"],
             (x1, y1 - 35),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.35,    # 0.6 for normal, 0.35 for cam5
+            0.55,    # 0.6 for normal, 0.35 for cam5
             color,
-            1   # replace with 2 for normal
+            2   # replace with 2 for normal
         )
 
         ####################################################
@@ -167,9 +193,9 @@ class DrawingProcessor:
                 f"Idle : {person.get('idle_time', 0):.1f}s",
                 (x1, y2 + 25),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.35,    # 0.7 for normal, 0.35 for cam5
+                0.7,    # 0.7 for normal, 0.35 for cam5
                 (255, 0, 255),
-                1     # change to 2 for normal
+                2     # change to 2 for normal
             )
 
         ####################################################
@@ -183,9 +209,9 @@ class DrawingProcessor:
                 "RUNNING",
                 (x1, y2 + 25),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.35,    # 0.8 for normal, 0.35 for cam5
+                0.8,    # 0.8 for normal, 0.35 for cam5
                 (0, 165, 255),
-                1     # change to 3 for normal
+                3     # change to 3 for normal
             )
             
             
@@ -207,11 +233,11 @@ class DrawingProcessor:
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.35,    # 0.65 for normal, 0.35 for cam5
+                0.65,    # 0.65 for normal, 0.35 for cam5
 
                 (255,0,255),
 
-                1        # 2 for normal, 1 for cam5
+                2        # 2 for normal, 1 for cam5
 
             )
 
@@ -227,11 +253,11 @@ class DrawingProcessor:
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.35,    # 0.75 for normal, 0.35 for cam5
+                0.55,    # 0.75 for normal, 0.35 for cam5
 
                 (255,255,0),
 
-                1     # change to 2 for normal
+                2     # change to 2 for normal
             )
 
         elif person["status"] == "Slow Working":
@@ -246,11 +272,11 @@ class DrawingProcessor:
 
                 cv2.FONT_HERSHEY_SIMPLEX,
 
-                0.35,    # 0.75 for normal, 0.35 for cam5
+                0.75,    # 0.75 for normal, 0.35 for cam5
 
                 (0,255,255),
 
-                1     # change to 2 for normal
+                2     # change to 2 for normal
     )   
 
         ####################################################

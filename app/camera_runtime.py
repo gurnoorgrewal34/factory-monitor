@@ -265,7 +265,8 @@ class CameraRuntime:
         )
 
         behaviour = BehaviourEngine(
-            zone_engine
+            zone_engine,
+            orchestrator
         )
 
         ##################################################
@@ -322,7 +323,9 @@ class CameraRuntime:
 
                 orchestrator,
 
-                fps=self.fps
+                fps=self.fps,
+                
+                source_type=source_type
             )
         )
 

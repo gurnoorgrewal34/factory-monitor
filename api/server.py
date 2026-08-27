@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import json
 
 from queue import (
     Queue,
@@ -33,6 +34,10 @@ from pydantic import (
     BaseModel,
     Field,
 )
+from zones.zone_engine import (
+    ZoneEngine,
+)
+
 
 from app.camera_manager import (
     CameraManager,
@@ -57,6 +62,21 @@ from services.camera_service import (
 from services.rtsp_service import (
     RTSPService,
 )
+
+
+from alerts.alert_log_store import (
+    AlertLogStore,
+)
+
+from alerts.alert_formatter import (
+    AlertFormatter,
+)
+
+
+from fastapi.responses import (
+    StreamingResponse,
+)
+
 # ==================================================
 # PROJECT PATHS
 # ==================================================
@@ -135,11 +155,31 @@ websocket_manager = (
 # ALERT QUEUE
 # ==================================================
 
-alert_queue = Queue()
+# ==================================================
+# LIVE ALERT STREAM QUEUE
+#
+# Used by SSE /alerts/stream.
+# ==================================================
 
-alert_broadcaster_task = None
+alert_stream_queue = Queue()
 
+# ==================================================
+# ALERT LOG STORE
+#
+# Temporary in-memory history for frontend.
+#
+# Does NOT replace:
+#
+# - AlertManager
+# - AlertOverlay
+# - WebSocket
+# ==================================================
 
+alert_log_store = (
+    AlertLogStore(
+        max_logs=300
+    )
+)
 
 # ==================================================
 # REQUEST MODELS
@@ -150,6 +190,42 @@ class ModuleUpdateRequest(BaseModel):
     modules: List[str]
 
 
+
+# ===================================================
+# FOR ZONE API
+# ===================================================
+
+class ZoneCreateRequest(
+    BaseModel
+):
+
+    name: str = Field(
+        min_length=1
+    )
+
+    points: List[List[int]]
+
+    color: Optional[List[int]] = None
+
+    # normal / restricted
+    zone_type: str = "normal"
+
+
+class ZoneUpdateRequest(
+    BaseModel
+):
+
+    name: Optional[str] = None
+
+    points: Optional[List[List[int]]] = None
+
+    color: Optional[List[int]] = None
+
+    # normal / restricted
+    zone_type: str = "normal"
+    
+    
+    
 class CameraCreateRequest(
     BaseModel
 ):
@@ -304,6 +380,74 @@ def get_camera_or_404(
 
 
 
+
+def get_camera_zone_engine(
+    camera_id
+):
+
+    camera = get_camera_or_404(
+        camera_id
+    )
+
+    zones_file = (
+        camera.config.get(
+            "zones_file"
+        )
+        or
+        (
+            f"zones/data/"
+            f"{camera_id}.json"
+        )
+    )
+
+    if not os.path.isabs(
+        zones_file
+    ):
+
+        zones_file = os.path.join(
+            BASE_DIR,
+            zones_file
+        )
+
+    return ZoneEngine(
+        zones_file
+    )
+    
+    
+    
+    
+def get_camera_zone_engine(
+    camera_id
+):
+
+    camera = get_camera_or_404(
+        camera_id
+    )
+
+    zones_file = (
+        camera.config.get(
+            "zones_file"
+        )
+        or
+        (
+            f"zones/data/"
+            f"{camera_id}.json"
+        )
+    )
+
+    if not os.path.isabs(
+        zones_file
+    ):
+
+        zones_file = os.path.join(
+            BASE_DIR,
+            zones_file
+        )
+
+    return ZoneEngine(
+        zones_file
+    )
+    
 # ==================================================
 # FRONTEND-SAFE CAMERA RESPONSE
 #
@@ -367,6 +511,12 @@ def build_camera_response(
         "camera_ip":
             config.get(
                 "camera_ip"
+            ),
+            
+            
+        "username":
+            config.get(
+                "username"
             ),
 
         "rtsp_port":
@@ -609,22 +759,147 @@ def camera_alert_callback(
     alert
 ):
 
-    alert_queue.put({
+    # ==================================================
+    # IGNORE EMPTY / INVALID ALERTS
+    # ==================================================
 
-        "camera_id":
-            camera_id,
+    if alert is None:
 
-        "event":
-            "alert",
-
-        "timestamp":
-            time.time(),
-
-        "data":
-            alert
-    })
+        return
 
 
+    if isinstance(
+        alert,
+        dict
+    ):
+
+        if not alert:
+
+            return
+
+
+        alert_type = (
+
+            alert.get("type")
+            or
+            alert.get("alert_type")
+        )
+
+
+        if not alert_type:
+
+            return
+
+
+        normalized_type = (
+            str(alert_type)
+            .strip()
+            .lower()
+        )
+
+
+        # ----------------------------------------------
+        # These are NOT real alerts
+        # ----------------------------------------------
+
+        if normalized_type in (
+
+            "",
+            "none",
+            "normal",
+            "unknown",
+            "no alert",
+            "no_alert"
+
+        ):
+
+            return
+
+
+    elif isinstance(
+        alert,
+        str
+    ):
+
+        alert = alert.strip()
+
+
+        if not alert:
+
+            return
+
+
+        if alert.lower() in (
+
+            "none",
+            "normal",
+            "unknown",
+            "no alert",
+            "no_alert"
+
+        ):
+
+            return
+
+
+    else:
+
+        return
+
+
+    # ==================================================
+    # GENERATE ALERT ID
+    # ==================================================
+
+    alert_id = (
+        alert_log_store
+        .next_id()
+    )
+
+
+    # ==================================================
+    # STANDARDIZE ALERT
+    # ==================================================
+
+    message = (
+        AlertFormatter
+        .format(
+
+            alert_id=
+                alert_id,
+
+            camera_id=
+                camera_id,
+
+            alert=
+                alert
+        )
+    )
+
+
+    # ==================================================
+    # STORE REAL ALERT IN RECENT HISTORY
+    # ==================================================
+
+    alert_log_store.add(
+        message
+    )
+
+
+    # ==================================================
+    # PUSH REAL ALERT TO WEBSOCKET
+    # ==================================================
+
+    alert_stream_queue.put(
+        message
+    )
+
+
+    print(
+        "LIVE ALERT ->",
+        message
+    )
+    
 # ==================================================
 # REGISTER EXISTING CAMERA CALLBACKS
 # ==================================================
@@ -658,47 +933,6 @@ register_camera_callbacks()
 # WEBSOCKET BROADCASTER
 # ==================================================
 
-async def alert_broadcaster():
-
-    while True:
-
-        try:
-
-            while True:
-
-                try:
-
-                    message = (
-                        alert_queue
-                        .get_nowait()
-                    )
-
-                except Empty:
-
-                    break
-
-                await (
-                    websocket_manager
-                    .broadcast(
-                        message
-                    )
-                )
-
-        except asyncio.CancelledError:
-
-            break
-
-        except Exception as exc:
-
-            print(
-                "WEBSOCKET BROADCAST ERROR ->",
-                repr(exc)
-            )
-
-        await asyncio.sleep(
-            0.05
-        )
-
 
 # ==================================================
 # STARTUP
@@ -706,14 +940,6 @@ async def alert_broadcaster():
 
 @app.on_event("startup")
 async def startup_event():
-
-    global alert_broadcaster_task
-
-    alert_broadcaster_task = (
-        asyncio.create_task(
-            alert_broadcaster()
-        )
-    )
 
     print(
         "API STARTUP -> READY"
@@ -1199,6 +1425,8 @@ def update_camera(
         ] = RTSPService.build_url(
 
             camera_ip=camera_ip,
+            
+            brand=brand,
 
             username=username,
 
@@ -1396,7 +1624,300 @@ def stop_camera(
         stopped=stopped
     )
 
+# GET zones
+@app.get(
+    "/cameras/{camera_id}/zones"
+)
+def get_camera_zones(
+    camera_id: str
+):
 
+    zone_engine = (
+        get_camera_zone_engine(
+            camera_id
+        )
+    )
+
+    zones = (
+        zone_engine
+        .get_all_zones()
+    )
+
+    return {
+
+        "success":
+            True,
+
+        "camera_id":
+            camera_id,
+
+        "total":
+            len(zones),
+
+        "zones":
+            zones
+    }
+    
+    
+# Automatic zone id , frontend will not generate automatic id
+    # post zones
+    
+@app.post(
+    "/cameras/{camera_id}/zones",
+    status_code=201
+)
+def create_camera_zone(
+    camera_id: str,
+    request: ZoneCreateRequest
+):
+
+    zone_engine = (
+        get_camera_zone_engine(
+            camera_id
+        )
+    )
+
+    # ----------------------------------------------
+    # Polygon needs at least 3 points
+    # ----------------------------------------------
+
+    if len(
+        request.points
+    ) < 3:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "A zone requires at least "
+                "3 points."
+            )
+        )
+
+    existing_zones = (
+        zone_engine
+        .get_all_zones()
+    )
+
+    # ----------------------------------------------
+    # Simple automatic zone ID
+    # ----------------------------------------------
+
+    existing_numbers = []
+
+    for zone in existing_zones:
+
+        zone_id = str(
+            zone.get(
+                "id",
+                ""
+            )
+        )
+
+        if zone_id.startswith(
+            "zone_"
+        ):
+
+            try:
+
+                existing_numbers.append(
+                    int(
+                        zone_id.split(
+                            "_"
+                        )[-1]
+                    )
+                )
+
+            except ValueError:
+
+                pass
+
+    next_number = (
+        max(
+            existing_numbers,
+            default=0
+        )
+        +
+        1
+    )
+
+    zone_id = (
+        f"zone_"
+        f"{next_number:03d}"
+    )
+
+    # ----------------------------------------------
+    # Defaults
+    # ----------------------------------------------
+
+    zone = {
+
+        "id":
+            zone_id,
+
+        "name":
+            request.name.strip(),
+
+        "points":
+            request.points,
+
+        "color":
+            (
+                request.color
+                or
+                [0, 255, 0]
+            ),
+
+        "zone_type":
+        (
+            request.zone_type
+            or
+            "normal"
+        )
+        .lower()
+        .strip()
+    }
+
+    zone_engine.add_zone(
+        zone
+    )
+
+    return {
+
+        "success":
+            True,
+
+        "message":
+            "Zone created successfully",
+
+        "camera_id":
+            camera_id,
+
+        "zone":
+            zone
+    }    
+
+# PUT zone
+
+@app.put(
+    "/cameras/{camera_id}/zones/{zone_id}"
+)
+def update_camera_zone(
+    camera_id: str,
+    zone_id: str,
+    request: ZoneUpdateRequest
+):
+
+    zone_engine = (
+        get_camera_zone_engine(
+            camera_id
+        )
+    )
+
+    updates = (
+        request.model_dump(
+            exclude_unset=True
+        )
+    )
+
+    if (
+        "points" in updates
+        and
+        len(
+            updates["points"]
+        ) < 3
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "A zone requires at least "
+                "3 points."
+            )
+        )
+
+    try:
+
+        zone = (
+            zone_engine
+            .update_zone(
+                zone_id,
+                updates
+            )
+        )
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc)
+        )
+
+    return {
+
+        "success":
+            True,
+
+        "message":
+            "Zone updated successfully",
+
+        "camera_id":
+            camera_id,
+
+        "zone":
+            zone
+    }
+   
+   
+   
+    # delete zones 
+@app.delete(
+    "/cameras/{camera_id}/zones/{zone_id}"
+)
+def delete_camera_zone(
+    camera_id: str,
+    zone_id: str
+):
+
+    zone_engine = (
+        get_camera_zone_engine(
+            camera_id
+        )
+    )
+
+    try:
+
+        deleted_zone = (
+            zone_engine
+            .delete_zone(
+                zone_id
+            )
+        )
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc)
+        )
+
+    return {
+
+        "success":
+            True,
+
+        "message":
+            "Zone deleted successfully",
+
+        "camera_id":
+            camera_id,
+
+        "zone":
+            deleted_zone
+    }
+    
+    
+    
+        
 # ===================================
 # ADD MODULES
 # ===================================
@@ -1692,6 +2213,166 @@ def stream_camera(
     )
 
 
+# ==================================================
+# GET ALERT LOGS
+# ==================================================
+
+@app.get(
+    "/alerts"
+)
+def get_alerts(
+    camera_id: str | None = None,
+    alert_type: str | None = None,
+    severity: str | None = None,
+    limit: int = 50
+):
+
+    if limit < 1:
+
+        raise HTTPException(
+            status_code=400,
+            detail="limit must be greater than 0."
+        )
+
+    if limit > 500:
+
+        limit = 500
+
+    logs = (
+        alert_log_store
+        .get_all(
+
+            camera_id=
+                camera_id,
+
+            alert_type=
+                alert_type,
+
+            severity=
+                severity,
+
+            limit=
+                limit
+        )
+    )
+
+    return {
+
+        "success":
+            True,
+
+        "count":
+            len(
+                logs
+            ),
+
+        "alerts":
+            logs
+    }
+    
+    
+    
+# ==================================================
+# ALERT SSE STREAM
+#
+# Frontend calls this GET endpoint ONCE.
+#
+# Connection remains open and new alerts are pushed
+# continuously as they occur.
+# ==================================================
+
+async def alert_event_stream(
+    camera_id=None
+):
+
+    while True:
+
+        try:
+
+            message = (
+                alert_stream_queue
+                .get_nowait()
+            )
+
+        except Empty:
+
+            # ------------------------------------------
+            # SSE heartbeat.
+            #
+            # Prevent proxies/browser/network from
+            # treating an idle stream as dead.
+            # ------------------------------------------
+
+            yield ": keep-alive\n\n"
+
+            await asyncio.sleep(
+                1.0
+            )
+
+            continue
+
+
+        # ==============================================
+        # CAMERA FILTER
+        # ==============================================
+
+        if (
+            camera_id is not None
+            and
+            message.get(
+                "camera_id"
+            ) != camera_id
+        ):
+
+            continue
+
+
+        # ==============================================
+        # SSE MESSAGE
+        # ==============================================
+
+        yield (
+            "data: "
+            +
+            json.dumps(
+                message
+            )
+            +
+            "\n\n"
+        )
+        
+        
+        
+@app.get(
+    "/alerts/stream"
+)
+async def stream_alerts(
+    camera_id: str | None = None
+):
+
+    return StreamingResponse(
+
+        alert_event_stream(
+            camera_id=
+                camera_id
+        ),
+
+        media_type=
+            "text/event-stream",
+
+        headers={
+
+            "Cache-Control":
+                "no-cache",
+
+            "Connection":
+                "keep-alive",
+
+            "X-Accel-Buffering":
+                "no"
+        }
+    )
+        
 # ==================================================
 # WEBSOCKET
 # ==================================================

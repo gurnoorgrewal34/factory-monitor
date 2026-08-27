@@ -7,6 +7,14 @@ class PersonTracker:
     def __init__(self):
 
         self.model = YOLO(MODEL_PATH)
+        
+        
+    print()
+    print("========================================")
+    print("PERSON TRACKER INITIALIZATION")
+    print("MODEL_PATH ->", MODEL_PATH)
+    print("CONFIDENCE ->", CONFIDENCE)
+    print("========================================")    
 
     ##################################################
 
@@ -29,3 +37,27 @@ class PersonTracker:
         )
 
         return results
+    
+    
+    ##################################################
+    # TEMPORARY RAW PERSON DETECTION DEBUG
+    #
+    # Used only to compare:
+    # YOLO predict vs YOLO + BoT-SORT tracking.
+    #
+    # Remove after debugging.
+    ##################################################
+
+    def detect_debug(
+        self,
+        frame
+    ):
+
+        return self.model.predict(
+
+            frame,
+
+            conf=0.05,
+
+            verbose=False
+        )
