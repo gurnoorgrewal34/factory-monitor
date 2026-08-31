@@ -277,7 +277,128 @@ class DrawingProcessor:
                 (0,255,255),
 
                 2     # change to 2 for normal
-    )   
+            )
+            
+        ####################################################
+        # SUSPICIOUS THEFT VISUALIZATION
+        ####################################################
+
+        theft_status = person.get(
+            "theft_status",
+            "NORMAL"
+        )
+
+        theft_score = person.get(
+            "theft_score",
+            0
+        )
+
+        theft_evidence = person.get(
+            "theft_evidence"
+        )
+
+
+        # ==================================================
+        # SUSPICIOUS
+        # ==================================================
+
+        if theft_status == "SUSPICIOUS":
+
+            # Red box overrides normal person status color
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                (0, 0, 255),
+                4
+            )
+
+            cv2.putText(
+                frame,
+                f"SUSPICIOUS THEFT | SCORE {theft_score}",
+                (
+                    x1,
+                    max(
+                        25,
+                        y1 - 160
+                    )
+                ),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.65,
+                (0, 0, 255),
+                2,
+                cv2.LINE_AA
+            )
+
+
+            if theft_evidence:
+
+                cv2.putText(
+                    frame,
+                    f"Evidence : {theft_evidence}",
+                    (
+                        x1,
+                        max(
+                            45,
+                            y1 - 135
+                        )
+                    ),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.50,
+                    (0, 0, 255),
+                    2,
+                    cv2.LINE_AA
+                )
+
+
+            cv2.putText(
+                frame,
+                "POSSIBLE CONCEALMENT",
+                (
+                    x1,
+                    min(
+                        frame.shape[0] - 10,
+                        y2 + 50
+                    )
+                ),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.70,
+                (0, 0, 255),
+                2,
+                cv2.LINE_AA
+            )
+
+
+        # ==================================================
+        # WATCH
+        # ==================================================
+
+        elif theft_status == "WATCH":
+
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                (0, 165, 255),
+                3
+            )
+
+            cv2.putText(
+                frame,
+                f"THEFT WATCH | SCORE {theft_score}",
+                (
+                    x1,
+                    max(
+                        25,
+                        y1 - 160
+                    )
+                ),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.60,
+                (0, 165, 255),
+                2,
+                cv2.LINE_AA
+            )   
 
         ####################################################
         # Torso Debug

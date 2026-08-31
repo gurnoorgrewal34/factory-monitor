@@ -184,6 +184,157 @@ class ZoneEngine:
 
         return None
 
+    
+    ####################################################
+    # GET RESTRICTED ZONE FOR PERSON BOX
+    #
+    # Used ONLY by restricted-area detection.
+    #
+    # This does not change normal zone lookup.
+    # Other modules remain unaffected.
+    ####################################################
+
+    def get_restricted_zone_for_box(
+        self,
+        box
+    ):
+
+        if box is None:
+            return None
+
+        x1, y1, x2, y2 = map(
+            float,
+            box
+        )
+
+        width = (
+            x2 - x1
+        )
+
+        height = (
+            y2 - y1
+        )
+
+        if (
+            width <= 0
+            or
+            height <= 0
+        ):
+            return None
+
+
+        cx = (
+            x1 + x2
+        ) / 2.0
+
+
+        ####################################################
+        # MULTIPLE PERSON ANCHOR POINTS
+        #
+        # This supports:
+        # - floor zones
+        # - doorway zones
+        # - vertical restricted areas
+        # - room-sized polygons
+        ####################################################
+
+        test_points = [
+
+            # person center
+            (
+                cx,
+                y1 + height * 0.50
+            ),
+
+            # lower torso / hip area
+            (
+                cx,
+                y1 + height * 0.72
+            ),
+
+            # lower-left body
+            (
+                x1 + width * 0.30,
+                y1 + height * 0.80
+            ),
+
+            # lower-right body
+            (
+                x1 + width * 0.70,
+                y1 + height * 0.80
+            ),
+
+            # bottom-center / feet
+            (
+                cx,
+                y2
+            )
+        ]
+
+
+        ####################################################
+        # CHECK ONLY RESTRICTED ZONES
+        ####################################################
+
+        for zone in self.zones:
+
+            zone_type = (
+                str(
+                    zone.get(
+                        "zone_type",
+                        "normal"
+                    )
+                )
+                .lower()
+                .strip()
+            )
+
+            if zone_type != "restricted":
+                continue
+
+
+            points = (
+                zone.get(
+                    "points"
+                )
+                or
+                []
+            )
+
+            if len(points) < 3:
+                continue
+
+
+            polygon = np.array(
+                points,
+                dtype=np.int32
+            )
+
+
+            ################################################
+            # If ANY representative body point lies inside
+            # the restricted polygon, the person counts as
+            # being inside that restricted zone.
+            ################################################
+
+            for point in test_points:
+
+                inside = (
+                    cv2.pointPolygonTest(
+                        polygon,
+                        point,
+                        False
+                    )
+                )
+
+                if inside >= 0:
+                    return zone
+
+
+        return None
+    
+    
+    
     ####################################################
     # GET ZONE RULES
     ####################################################

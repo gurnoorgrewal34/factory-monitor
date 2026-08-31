@@ -45,7 +45,61 @@ class PersonProcessor:
 
         draw_box = (x1, y1, x2, y2)
 
-        person["box"] = draw_box
+        person["box"] = draw_box        
+        
+        ##################################################
+        # RESTRICTED AREA MEMBERSHIP
+        #
+        # IMPORTANT:
+        #
+        # This does NOT make other modules zone-dependent.
+        #
+        # These are simply metadata fields used ONLY by
+        # BehaviourEngine's "restricted" module.
+        ##################################################
+
+        restricted_zone_info = (
+            self.zone_engine
+            .get_restricted_zone_for_box(
+                draw_box
+            )
+        )
+
+
+        if restricted_zone_info is not None:
+
+            person[
+                "in_restricted_zone"
+            ] = True
+
+            person[
+                "restricted_zone"
+            ] = restricted_zone_info.get(
+                "name",
+                "Restricted Area"
+            )
+
+            person[
+                "restricted_zone_info"
+            ] = restricted_zone_info
+
+
+        else:
+
+            person[
+                "in_restricted_zone"
+            ] = False
+
+            person[
+                "restricted_zone"
+            ] = None
+
+            person[
+                "restricted_zone_info"
+            ] = None
+        
+        
+        
 
         # Store current zone
         person["zone"] = zone

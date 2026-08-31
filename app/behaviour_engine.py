@@ -53,96 +53,7 @@ class BehaviourEngine:
         
         self.sleep = SleepBehaviour()
         self.after_shift = AfterShiftBehaviour()
-        
-    ####################################################
-    # Individual Behaviours
-    ####################################################
-
-    # def process(self, person):
-
-    #     alerts = []
-
-    #     zone = person["zone"]
-
-    #     # ==================================================
-    #     # RESTRICTED AREA
-    #     # ==================================================
-
-    #     if (
-    #         self.orchestrator is not None
-    #         and
-    #         self.orchestrator.enabled("restricted")
-    #         and
-    #         self.zone_policy.allows(zone, "restricted")
-    #     ):
-
-    #         alert = self.restricted.check(person)
-
-    #         if alert is not None:
-    #             alerts.append(alert)
-
-    #     # ==================================================
-    #     # LOITERING
-    #     # ==================================================
-
-    #     if (
-    #         self.orchestrator is not None
-    #         and
-    #         self.orchestrator.enabled("loitering")
-    #         and
-    #         self.zone_policy.allows(zone, "loitering")
-    #     ):
-
-    #         alert = self.loitering.check(person)
-
-    #         if alert is not None:
-    #             alerts.append(alert)
-
-    #     # ==================================================
-    #     # ACTIVITY
-    #     # ==================================================
-
-    #     if (
-    #         self.orchestrator is not None
-    #         and
-    #         self.orchestrator.enabled("activity")
-    #     ):
-
-    #         self.activity.check(person)
-
-    #     # ==================================================
-    #     # IDLE
-    #     # ==================================================
-
-    #     if (
-    #         self.orchestrator is not None
-    #         and
-    #         self.orchestrator.enabled("idle")
-    #     ):
-
-    #         alert = self.idle.check(person)
-
-    #         if alert is not None:
-    #             alerts.append(alert)
-
-    #     # ==================================================
-    #     # RUNNING
-    #     # ==================================================
-
-    #     if (
-    #         self.orchestrator is not None
-    #         and
-    #         self.orchestrator.enabled("running")
-    #         and
-    #         RUNNING_ENABLED
-    #     ):
-
-    #         alert = self.running.check(person)
-
-    #         if alert is not None:
-    #             alerts.append(alert)
-
-    #     return alerts
+   
     
     
     
@@ -155,44 +66,14 @@ class BehaviourEngine:
             "Unknown"
         )
 
+
         # ==================================================
         # RESTRICTED AREA
-        # ==================================================
-
-        # if (
-        #     self.orchestrator is not None
-        #     and
-        #     self.orchestrator.enabled(
-        #         "restricted"
-        #     )
-        # ):
-
-        #     is_restricted = (
-        #         self.zone_policy
-        #         .is_restricted(
-        #             zone
-        #         )
-        #     )
-
-        #     alert = (
-        #         self.restricted
-        #         .check(
-        #             person,
-        #             is_restricted=
-        #                 is_restricted
-        #         )
-        #     )
-
-        #     if alert is not None:
-
-        #         alerts.append(
-        #             alert
-        #         )
-        
-        
-        
-        # ==================================================
-        # RESTRICTED AREA
+        #
+        # ONLY this module depends on restricted zones.
+        #
+        # Helmet / Phone / Running / Idle / Theft /
+        # Pose / Fall / etc. remain zone-independent.
         # ==================================================
 
         if (
@@ -203,18 +84,40 @@ class BehaviourEngine:
             )
         ):
 
+            is_restricted = bool(
+                person.get(
+                    "in_restricted_zone",
+                    False
+                )
+            )
+
+
+            print(
+                "RESTRICTED DEBUG -> "
+                f"ID={person.get('id')} | "
+                f"InRestricted={is_restricted} | "
+                f"RestrictedZone="
+                f"{person.get('restricted_zone')} | "
+                f"Box={person.get('box')}"
+            )
+
+
             alert = (
                 self.restricted
                 .check(
-                    person
+                    person,
+                    is_restricted=
+                        is_restricted
                 )
             )
+
 
             if alert is not None:
 
                 alerts.append(
                     alert
                 )
+        
 
         # ==================================================
         # LOITERING

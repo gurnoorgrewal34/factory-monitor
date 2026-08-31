@@ -56,7 +56,7 @@ VIDEO_PATH = os.path.join(
     BASE_DIR,
     "datasets",
     "raw_videos",
-    "car_num6.mp4"
+    "pose2.mp4"
 )
 
 
@@ -92,7 +92,7 @@ CCTV_URL = ""
 # YOLO SETTINGS
 ##################################################
 
-CONFIDENCE = 0.40
+CONFIDENCE = 0.30
 
 SHOW_CONFIDENCE = True
 

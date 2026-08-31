@@ -2425,26 +2425,20 @@ async def websocket_alerts(
 @app.on_event("shutdown")
 async def shutdown_event():
 
-    global alert_broadcaster_task
-
     print(
-        "API SHUTDOWN -> "
-        "Stopping cameras..."
+        "API SHUTDOWN -> Stopping cameras..."
     )
 
-    camera_manager.stop_all()
+    try:
 
-    if alert_broadcaster_task is not None:
+        camera_manager.stop_all()
 
-        alert_broadcaster_task.cancel()
+    except Exception as exc:
 
-        try:
-
-            await alert_broadcaster_task
-
-        except asyncio.CancelledError:
-
-            pass
+        print(
+            "CAMERA SHUTDOWN ERROR ->",
+            repr(exc)
+        )
 
     print(
         "API SHUTDOWN -> Complete"

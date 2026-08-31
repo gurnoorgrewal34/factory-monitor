@@ -7,6 +7,11 @@ from detectors.pose_detector import PoseDetector
 from processors.pose_processor import PoseProcessor
 from processors.pose_matcher import PoseMatcher
 
+
+from processors.theft_processor import (
+    TheftProcessor,
+)
+
 from detectors.fall_detector import FallDetector
 
 from engine.sleep_engine import SleepEngine
@@ -214,7 +219,7 @@ class FrameProcessor:
 
         self.pose_matcher = None
         
-        
+        self.theft_processor = None
         
         self.vehicle_processor = None
 
@@ -298,26 +303,69 @@ class FrameProcessor:
                 FallDetector()
             )
 
+
         # ------------------------------------------------
-        # Pose
+        # SHARED POSE MODEL
+        #
+        # Pose inference is required by:
+        #
+        # - pose module
+        # - suspicious_theft module
+        #
+        # IMPORTANT:
+        # Only ONE YOLO pose model is loaded.
         # ------------------------------------------------
 
-        if self.orchestrator.enabled("pose"):
+        if self.orchestrator.any_enabled(
+            "pose",
+            "suspicious_theft"
+        ):
 
             print(
-                "ORCHESTRATOR -> Loading POSE model"
+                "ORCHESTRATOR -> "
+                "Loading SHARED POSE model"
             )
 
             self.pose_detector = (
                 PoseDetector()
             )
 
+            # Pose matching is needed by both modules
+            self.pose_matcher = (
+                PoseMatcher()
+            )
+
+
+        # ------------------------------------------------
+        # NORMAL POSE CLASSIFICATION
+        # ------------------------------------------------
+
+        if self.orchestrator.enabled(
+            "pose"
+        ):
+
             self.pose_processor = (
                 PoseProcessor()
             )
 
-            self.pose_matcher = (
-                PoseMatcher()
+
+        # ------------------------------------------------
+        # SUSPICIOUS THEFT PROCESSOR
+        # ------------------------------------------------
+
+        if self.orchestrator.enabled(
+            "suspicious_theft"
+        ):
+
+            print(
+                "ORCHESTRATOR -> "
+                "Loading SUSPICIOUS THEFT processor"
+            )
+
+            self.theft_processor = (
+                TheftProcessor(
+                    fps=self.fps
+                )
             )
 
         # ------------------------------------------------
@@ -557,6 +605,8 @@ class FrameProcessor:
             "sleep",
             
             "vehicle",
+            
+            "suspicious_theft",
             "total"
         ]
 
@@ -1219,8 +1269,9 @@ class FrameProcessor:
         # POSE MODEL
         ##################################################
 
-        if self.orchestrator.enabled(
-            "pose"
+        if self.orchestrator.any_enabled(
+            "pose",
+            "suspicious_theft"
         ):
 
             detector_start = time.perf_counter()
@@ -1297,22 +1348,23 @@ class FrameProcessor:
 
                         print(alert)
 
+
             ##################################################
-            # POSE PROCESSING
+            # SHARED POSE MATCHING
             #
-            # Existing pose workflow remains untouched.
+            # Required by:
+            # - pose
+            # - suspicious_theft
             ##################################################
 
             if (
-                self.orchestrator.enabled("pose")
+                self.orchestrator.any_enabled(
+                    "pose",
+                    "suspicious_theft"
+                )
                 and pose_results is not None
                 and self.pose_matcher is not None
-                and self.pose_processor is not None
             ):
-
-                ##################################################
-                # Match pose to tracked people
-                ##################################################
 
                 self.pose_matcher.match(
 
@@ -1321,24 +1373,30 @@ class FrameProcessor:
                     .all_people(),
 
                     pose_results[0]
-
                 )
 
-                ##################################################
-                # Process pose
-                ##################################################
+
+            ##################################################
+            # NORMAL POSE PROCESSING
+            #
+            # Only runs when the user explicitly selected
+            # the normal pose module.
+            ##################################################
+
+            if (
+                self.orchestrator.enabled(
+                    "pose"
+                )
+                and self.pose_processor is not None
+            ):
 
                 self.pose_processor.process(
 
                     self.person_processor
                     .memory
                     .all_people()
-
                 )
 
-                ##################################################
-                # Pose Behaviour
-                ##################################################
 
                 for person in (
 
@@ -1353,6 +1411,85 @@ class FrameProcessor:
                         person
                     )
 
+            
+            
+            
+            ##################################################
+            # SUSPICIOUS THEFT PROCESSING
+            #
+            # Uses:
+            # - existing PersonTracker IDs
+            # - existing PersonMemory
+            # - shared YOLO pose results
+            #
+            # No second tracker or pose model is created.
+            ##################################################
+
+            if (
+                self.orchestrator.enabled(
+                    "suspicious_theft"
+                )
+                and self.theft_processor is not None
+            ):
+
+                try:
+
+                    theft_start = (
+                        time.perf_counter()
+                    )
+
+
+                    theft_alerts = (
+                        self.theft_processor
+                        .process(
+
+                            people=
+                                self.person_processor
+                                .memory
+                                .all_people(),
+
+                            frame_idx=
+                                current_frame_idx,
+
+                            frame_shape=
+                                frame.shape
+                        )
+                    )
+
+
+                    self._perf_add(
+                        "suspicious_theft",
+                        time.perf_counter()
+                        - theft_start
+                    )
+
+
+                    if theft_alerts:
+
+                        self.alert_overlay.update(
+                            theft_alerts
+                        )
+
+
+                        for alert in theft_alerts:
+
+                            print(
+                                "THEFT ALERT ->",
+                                alert
+                            )
+
+
+                except Exception as exc:
+
+                    # Theft module must never crash
+                    # the rest of the AI pipeline.
+
+                    print(
+                        "SUSPICIOUS THEFT ERROR ->",
+                        repr(exc)
+                    )
+                    
+                    
             ##################################################
             # CORE PERSON BEHAVIOURS
             #

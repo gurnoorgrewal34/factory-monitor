@@ -3,7 +3,7 @@
     "zones": [
         {
             "id": "zone_001",
-            "name": "red zone",
+            "name": "high_risk_area",
             "points": [
                 [
                     51,
@@ -27,7 +27,7 @@
                 0,
                 0
             ],
-            "zone_type": "normal"
+            "zone_type": "restricted"
         }
     ]
 }

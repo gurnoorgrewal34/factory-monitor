@@ -35,7 +35,7 @@ print("========================================")
 
 orchestrator = Orchestrator()
 orchestrator.set_modules([
-    "vehicle"
+    "suspicious_theft"
 ]) 
 
 
@@ -208,7 +208,7 @@ os.makedirs(
 
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR,
-    "testing_vh_26082025.mp4"
+    "3108_theft__13.mp4"
 )
 
 
