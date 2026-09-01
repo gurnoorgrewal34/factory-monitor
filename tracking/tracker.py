@@ -59,5 +59,7 @@ class PersonTracker:
 
             conf=0.05,
 
-            verbose=False
+            verbose=False,
+            
+            classes=[0]
         )

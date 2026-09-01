@@ -52,15 +52,21 @@ class GroupBehaviour:
 
         speed1 = float(
             p1.get(
-                "avg_speed",
-                0.0
+                "avg_frame_displacement",
+                p1.get(
+                    "avg_speed",
+                    0.0
+                )
             )
         )
 
         speed2 = float(
             p2.get(
-                "avg_speed",
-                0.0
+                "avg_frame_displacement",
+                p2.get(
+                    "avg_speed",
+                    0.0
+                )
             )
         )
 

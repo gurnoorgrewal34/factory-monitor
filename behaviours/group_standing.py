@@ -87,8 +87,11 @@ class GroupStandingBehaviour:
 
         body_speed = float(
             person.get(
-                "avg_speed",
-                0.0
+                "avg_frame_displacement",
+                person.get(
+                    "avg_speed",
+                    0.0
+                )
             )
         )
 
@@ -151,8 +154,11 @@ class GroupStandingBehaviour:
 
         body_speed = float(
             person.get(
-                "avg_speed",
-                0.0
+                "avg_frame_displacement",
+                person.get(
+                    "avg_speed",
+                    0.0
+                )
             )
         )
 

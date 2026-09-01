@@ -34,9 +34,9 @@ print("========================================")
 
 
 orchestrator = Orchestrator()
-orchestrator.set_modules([
-    "suspicious_theft"
-]) 
+# orchestrator.set_modules([
+#     "group"
+# ]) 
 
 
 tracker = PersonTracker()
@@ -208,7 +208,7 @@ os.makedirs(
 
 OUTPUT_PATH = os.path.join(
     OUTPUT_DIR,
-    "3108_theft__13.mp4"
+    "0109_group__1.mp4"
 )
 
 

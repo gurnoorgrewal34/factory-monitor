@@ -24,11 +24,11 @@ class FireBehaviour:
         # Temporal confirmation
         # ---------------------------------------------
 
-        self.WINDOW_SIZE = 15
+        self.WINDOW_SIZE = 12
 
         # 10 valid frames out of last 15
         # required to CONFIRM fire.
-        self.MIN_VALID_FRAMES = 10
+        self.MIN_VALID_FRAMES = 5
 
         # ---------------------------------------------
         # Clear confirmation

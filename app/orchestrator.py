@@ -29,6 +29,48 @@ class Orchestrator:
             "vehicle",
             "suspicious_theft"
         }
+        
+        
+        
+        
+        
+        ##################################################
+        # INTERNAL DEPENDENCIES
+        #
+        # selected_modules = what USER selected
+        #
+        # runtime dependencies = internal processing
+        # required to make the selected behaviour work.
+        #
+        # IMPORTANT:
+        # These dependencies do NOT automatically enable
+        # their user-facing alerts.
+        ##################################################
+
+        self.dependencies = {
+
+            # Idle needs:
+            # pose_state + wrist movement
+            "idle": {
+                "pose"
+            },
+
+            # Activity is based on pose_state
+            "activity": {
+                "pose"
+            },
+
+            # Current "group" feature runs:
+            # GroupBehaviour
+            # GroupStandingBehaviour
+            # SocialLoiteringBehaviour
+            #
+            # Group standing/social logic needs pose and
+            # hand movement information.
+            "group": {
+                "pose"
+            },
+        }
 
         ##################################################
         # Default
@@ -236,6 +278,94 @@ class Orchestrator:
         return sorted(
             self.selected_modules
         )
+
+    
+    
+    
+    
+    
+    
+    ##################################################
+    # GET INTERNAL RUNTIME MODULES
+    ##################################################
+
+    def runtime_modules(self):
+
+        required = set(
+            self.selected_modules
+        )
+
+        changed = True
+
+        while changed:
+
+            changed = False
+
+            for module in list(required):
+
+                dependencies = (
+                    self.dependencies.get(
+                        module,
+                        set()
+                    )
+                )
+
+                for dependency in dependencies:
+
+                    if dependency not in required:
+
+                        required.add(
+                            dependency
+                        )
+
+                        changed = True
+
+        return required
+
+
+    ##################################################
+    # RUNTIME ENABLED
+    #
+    # IMPORTANT:
+    # Use this for shared internal processors/models.
+    #
+    # Do NOT use this for deciding which user alert
+    # should be generated.
+    ##################################################
+
+    def runtime_enabled(self, module):
+
+        module = (
+            module.lower().strip()
+        )
+
+        return (
+            module
+            in
+            self.runtime_modules()
+        )
+
+
+    ##################################################
+    # ANY RUNTIME ENABLED
+    ##################################################
+
+    def any_runtime_enabled(
+        self,
+        *modules
+    ):
+
+        for module in modules:
+
+            if self.runtime_enabled(
+                module
+            ):
+
+                return True
+
+        return False
+
+
 
     ##################################################
     # DEBUG

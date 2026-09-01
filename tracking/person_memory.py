@@ -14,7 +14,13 @@ class PersonMemory:
     # CREATE PERSON
     # ==========================================================
 
-    def _create_person(self, track_id, center, box, current_time):
+    def _create_person(
+        self,
+        track_id,
+        center,
+        box,
+        current_time
+    ):
 
         # Person height in pixels
         person_height = max(
@@ -36,6 +42,10 @@ class PersonMemory:
             # --------------------------------------------------
 
             "pose": None,
+
+            # PoseMatcher currently writes this field.
+            "pose_conf": None,
+
             "activity_state": "Unknown",
             "pose_state": "UNKNOWN",
             "motion_state": "UNKNOWN",
@@ -56,6 +66,7 @@ class PersonMemory:
             "right_elbow_angle": 0.0,
 
             "pose_confidence": 0.0,
+            "pose_match_iou": 0.0,
 
             # --------------------------------------------------
             # Hand movement
@@ -90,14 +101,31 @@ class PersonMemory:
             "frames": 1,
             "distance": 0.0,
 
-            # Raw instantaneous speed.
+            # Raw instantaneous speed in pixels / second.
             "speed": 0.0,
 
-            # Stable speed used by existing code.
+            # IMPORTANT:
+            #
+            # Keep this exactly as existing raw/smoothed
+            # pixels-per-second speed.
+            #
+            # Other existing behaviours may depend on it.
             "avg_speed": 0.0,
 
             # --------------------------------------------------
-            # NEW: normalized motion
+            # Dedicated frame displacement
+            #
+            # Smoothed number of pixels moved between source
+            # frames.
+            #
+            # Idle / Group / Social behaviours can use this
+            # without changing avg_speed.
+            # --------------------------------------------------
+
+            "avg_frame_displacement": 0.0,
+
+            # --------------------------------------------------
+            # Normalized motion
             # --------------------------------------------------
 
             "motion_speed": 0.0,
@@ -105,12 +133,20 @@ class PersonMemory:
 
             "person_height": person_height,
 
-            # Recent normalized speeds.
-            "speed_history": deque(maxlen=12),
+            # Keep maxlen=8 because this was the effective
+            # value in your previous dictionary.
+            "speed_history": deque(
+                maxlen=8
+            ),
 
-            # Recent centers.
             "position_history": deque(
-                [(center[0], center[1], current_time)],
+                [
+                    (
+                        center[0],
+                        center[1],
+                        current_time
+                    )
+                ],
                 maxlen=12
             ),
 
@@ -165,26 +201,14 @@ class PersonMemory:
             "running_frames": 0,
             "running_alerted": False,
 
-            # Extra running state
             "running_candidate": False,
             "running_candidate_frames": 0,
-            
-            
-            "motion_speed": 0.0,
-            "avg_motion_speed": 0.0,
-
-            "speed_history": deque(maxlen=8),
-
-            "position_history": deque(
-                [(center[0], center[1], current_time)],
-                maxlen=12
-            ),
-
         }
 
     # ==========================================================
     # UPDATE POSITION
     # ==========================================================
+
     def update(
         self,
         track_id,
@@ -193,9 +217,22 @@ class PersonMemory:
         frame_time=None
     ):
 
+        # ------------------------------------------------------
+        # Resolve time
+        #
+        # Video:
+        # frame_time comes from source timeline.
+        #
+        # CCTV/live:
+        # frame_time is current wall-clock timestamp.
+        # ------------------------------------------------------
+
         if frame_time is not None:
 
-            if hasattr(frame_time, "timestamp"):
+            if hasattr(
+                frame_time,
+                "timestamp"
+            ):
 
                 current_time = (
                     frame_time.timestamp()
@@ -230,32 +267,59 @@ class PersonMemory:
         # Existing person
         # ------------------------------------------------------
 
-        person = self.people[track_id]
+        person = self.people[
+            track_id
+        ]
 
-        previous = person["current_center"]
+        previous = person[
+            "current_center"
+        ]
 
         # ------------------------------------------------------
         # Time difference
         # ------------------------------------------------------
 
-        dt = current_time - person["last_seen"]
+        dt = (
+            current_time
+            -
+            person["last_seen"]
+        )
 
-        # Ignore impossible time intervals.
+        # Ignore impossible intervals.
         if dt <= 0:
+
             dt = 1e-6
 
         # Protect against tracker stalls.
-        dt = min(dt, 0.5)
+        dt = min(
+            dt,
+            0.5
+        )
 
         # ------------------------------------------------------
         # Pixel displacement
+        #
+        # IMPORTANT:
+        #
+        # This is movement between source frames.
+        # It is NOT pixels/second.
         # ------------------------------------------------------
 
-        dx = center[0] - previous[0]
-        dy = center[1] - previous[1]
+        dx = (
+            center[0]
+            -
+            previous[0]
+        )
+
+        dy = (
+            center[1]
+            -
+            previous[1]
+        )
 
         distance = math.sqrt(
-            dx * dx +
+            dx * dx
+            +
             dy * dy
         )
 
@@ -265,61 +329,69 @@ class PersonMemory:
 
         current_height = max(
             1.0,
-            float(box[3] - box[1])
+            float(
+                box[3]
+                -
+                box[1]
+            )
         )
 
-        # Smooth the height slightly.
         old_height = person.get(
             "person_height",
             current_height
         )
 
         person_height = (
-            0.8 * old_height +
+            0.8 * old_height
+            +
             0.2 * current_height
         )
 
-        person["person_height"] = person_height
+        person[
+            "person_height"
+        ] = person_height
 
         # ------------------------------------------------------
         # RAW SPEED
         #
-        # Kept for compatibility with existing models.
-        # DO NOT use this directly for Running.
+        # pixels / second
+        #
+        # DO NOT change this behaviour because existing modules
+        # may depend on avg_speed.
         # ------------------------------------------------------
 
-        raw_speed = distance / dt
+        raw_speed = (
+            distance
+            /
+            dt
+        )
 
         # ------------------------------------------------------
         # NORMALIZED SPEED
-        #
-        # Pixel movement / person height.
-        #
-        # This makes movement much less dependent on:
-        # - camera resolution
-        # - person distance from camera
-        # - bounding-box size
         # ------------------------------------------------------
 
         normalized_speed = (
-            distance / person_height
+            distance
+            /
+            person_height
         ) / dt
 
         # ------------------------------------------------------
         # Reject obvious tracker jumps
         # ------------------------------------------------------
 
-        # If a person suddenly moves more than 35% of their
-        # body height in one tracking interval, it is likely
-        # a tracker jump rather than actual running movement.
-
         max_reasonable_displacement = (
-            person_height * 0.20
+            person_height
+            *
+            0.20
         )
 
-        if distance > max_reasonable_displacement:
+        if (
+            distance
+            >
+            max_reasonable_displacement
+        ):
 
-            # Do not feed this huge jump into running.
             motion_speed = 0.0
 
             print(
@@ -331,35 +403,43 @@ class PersonMemory:
 
         else:
 
-            motion_speed = normalized_speed
+            motion_speed = (
+                normalized_speed
+            )
 
         # ------------------------------------------------------
-        # SPEED HISTORY
+        # NORMALIZED SPEED HISTORY
         # ------------------------------------------------------
 
-        history = person["speed_history"]
+        history = person[
+            "speed_history"
+        ]
 
-        history.append(motion_speed)
-
-        # Use median instead of a simple exponential average.
-        #
-        # Median is much harder for one noisy frame to corrupt.
+        history.append(
+            motion_speed
+        )
 
         if len(history) >= 3:
 
             stable_speed = float(
-                statistics.median(history)
+                statistics.median(
+                    history
+                )
             )
 
         else:
 
-            stable_speed = motion_speed
+            stable_speed = (
+                motion_speed
+            )
 
         # ------------------------------------------------------
-        # Update position history
+        # Position history
         # ------------------------------------------------------
 
-        person["position_history"].append(
+        person[
+            "position_history"
+        ].append(
             (
                 center[0],
                 center[1],
@@ -368,60 +448,142 @@ class PersonMemory:
         )
 
         # ------------------------------------------------------
-        # Existing values
+        # Existing distance / speed values
         # ------------------------------------------------------
 
-        person["distance"] += distance
+        person[
+            "distance"
+        ] += distance
 
-        person["speed"] = raw_speed
+        person[
+            "speed"
+        ] = raw_speed
 
-        # IMPORTANT:
+        # ------------------------------------------------------
+        # Existing avg_speed
         #
-        # Keep avg_speed conservative so other existing code
-        # that uses avg_speed does not suddenly change wildly.
+        # KEEP UNCHANGED.
+        #
+        # It remains smoothed raw pixels / second.
+        # ------------------------------------------------------
 
-        old_avg = person.get("avg_speed", 0.0)
+        old_avg = float(
+            person.get(
+                "avg_speed",
+                0.0
+            )
+        )
 
-        person["avg_speed"] = (
-            0.8 * old_avg +
+        person[
+            "avg_speed"
+        ] = (
+            0.8 * old_avg
+            +
             0.2 * raw_speed
         )
 
-        # New normalized values.
-        person["motion_speed"] = motion_speed
+        # ------------------------------------------------------
+        # NEW / SAFE FRAME DISPLACEMENT
+        #
+        # This is deliberately independent from avg_speed.
+        #
+        # If person moves:
+        #
+        # frame 1 -> 3 pixels
+        # frame 2 -> 5 pixels
+        # frame 3 -> 4 pixels
+        #
+        # this stays around a few pixels rather than becoming
+        # hundreds of pixels/second.
+        # ------------------------------------------------------
 
-        old_motion_avg = person.get(
-            "avg_motion_speed",
-            0.0
+        old_frame_displacement = float(
+            person.get(
+                "avg_frame_displacement",
+                0.0
+            )
         )
 
-        person["avg_motion_speed"] = (
-            0.8 * old_motion_avg +
-            0.2 * stable_speed
+        person[
+            "avg_frame_displacement"
+        ] = (
+            0.8
+            *
+            old_frame_displacement
+            +
+            0.2
+            *
+            distance
+        )
+
+        # ------------------------------------------------------
+        # Normalized motion
+        # ------------------------------------------------------
+
+        person[
+            "motion_speed"
+        ] = motion_speed
+
+        old_motion_avg = float(
+            person.get(
+                "avg_motion_speed",
+                0.0
+            )
+        )
+
+        person[
+            "avg_motion_speed"
+        ] = (
+            0.8
+            *
+            old_motion_avg
+            +
+            0.2
+            *
+            stable_speed
         )
 
         # ------------------------------------------------------
         # Position
         # ------------------------------------------------------
 
-        person["previous_center"] = previous
-        person["current_center"] = center
-        person["box"] = box
+        person[
+            "previous_center"
+        ] = previous
+
+        person[
+            "current_center"
+        ] = center
+
+        person[
+            "box"
+        ] = box
 
         # ------------------------------------------------------
         # Tracking
         # ------------------------------------------------------
 
-        person["frames"] += 1
-        person["last_seen"] = current_time
+        person[
+            "frames"
+        ] += 1
 
-        person["total_time"] = (
-            current_time -
+        person[
+            "last_seen"
+        ] = current_time
+
+        person[
+            "total_time"
+        ] = (
+            current_time
+            -
             person["first_seen"]
         )
 
         # ------------------------------------------------------
         # DEBUG
+        #
+        # FrameAvg was added so we can verify that Idle is
+        # receiving the new correct movement representation.
         # ------------------------------------------------------
 
         print(
@@ -430,9 +592,12 @@ class PersonMemory:
             f"Center={center} | "
             f"Previous={previous} | "
             f"Distance={distance:.2f} | "
+            f"FrameAvg="
+            f"{person['avg_frame_displacement']:.2f} | "
             f"Height={person_height:.1f} | "
             f"dt={dt:.4f} | "
             f"RawSpeed={raw_speed:.2f} | "
+            f"AvgRaw={person['avg_speed']:.2f} | "
             f"Normalized={motion_speed:.3f} | "
             f"Stable={stable_speed:.3f}"
         )
@@ -441,49 +606,82 @@ class PersonMemory:
     # UPDATE ZONE
     # ==========================================================
 
-    def update_zone(self, track_id, zone):
+    def update_zone(
+        self,
+        track_id,
+        zone
+    ):
 
         if track_id not in self.people:
+
             return
 
-        person = self.people[track_id]
+        person = self.people[
+            track_id
+        ]
 
         current_time = time.time()
 
         if person["zone"] != zone:
 
-            person["zone"] = zone
+            person[
+                "zone"
+            ] = zone
 
-            person["zone_enter_time"] = current_time
+            person[
+                "zone_enter_time"
+            ] = current_time
 
-            person["zone_time"] = 0.0
+            person[
+                "zone_time"
+            ] = 0.0
 
-            person["loitering_alerted"] = False
+            person[
+                "loitering_alerted"
+            ] = False
 
         else:
 
-            person["zone_time"] = (
-                current_time -
-                person["zone_enter_time"]
+            person[
+                "zone_time"
+            ] = (
+                current_time
+                -
+                person[
+                    "zone_enter_time"
+                ]
             )
 
     # ==========================================================
     # UPDATE STATUS
     # ==========================================================
 
-    def update_status(self, track_id, status):
+    def update_status(
+        self,
+        track_id,
+        status
+    ):
 
         if track_id in self.people:
 
-            self.people[track_id]["status"] = status
+            self.people[
+                track_id
+            ][
+                "status"
+            ] = status
 
     # ==========================================================
     # GET PERSON
     # ==========================================================
 
-    def get(self, track_id):
+    def get(
+        self,
+        track_id
+    ):
 
-        return self.people.get(track_id)
+        return self.people.get(
+            track_id
+        )
 
     # ==========================================================
     # GET ALL
@@ -494,6 +692,69 @@ class PersonMemory:
         return self.people
 
     # ==========================================================
+    # CLEANUP INACTIVE TRACKS
+    # ==========================================================
+
+    def cleanup_inactive(
+        self,
+        active_ids,
+        max_age_seconds=2.0
+    ):
+
+        current_time = (
+            time.time()
+        )
+
+        active_ids = set(
+            active_ids
+        )
+
+        stale_ids = []
+
+        for (
+            track_id,
+            person
+        ) in self.people.items():
+
+            # Person is visible right now.
+            if track_id in active_ids:
+
+                continue
+
+            last_seen = person.get(
+                "last_seen",
+                current_time
+            )
+
+            age = (
+                current_time
+                -
+                last_seen
+            )
+
+            if (
+                age
+                >
+                max_age_seconds
+            ):
+
+                stale_ids.append(
+                    track_id
+                )
+
+        for track_id in stale_ids:
+
+            print(
+                f"PERSON MEMORY CLEANUP -> "
+                f"Removing stale ID={track_id}"
+            )
+
+            self.people.pop(
+                track_id,
+                None
+            )
+
+    # ==========================================================
     # DEBUG
     # ==========================================================
 
@@ -501,5 +762,7 @@ class PersonMemory:
 
         print(
             "CURRENT MEMORY IDS:",
-            list(self.people.keys())
+            list(
+                self.people.keys()
+            )
         )

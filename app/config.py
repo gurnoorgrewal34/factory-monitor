@@ -56,7 +56,7 @@ VIDEO_PATH = os.path.join(
     BASE_DIR,
     "datasets",
     "raw_videos",
-    "pose2.mp4"
+    "testing_video.mp4"
 )
 
 
@@ -145,14 +145,15 @@ RUNNING_SPEED = 12
 # BEHAVIOUR TIMERS
 ##################################################
 
-WAITING_TIME = 30
+WAITING_TIME = 8  #30
 
-STANDING_WITHOUT_WORK_TIME = 20
+STANDING_WITHOUT_WORK_TIME = 5   #20
 
-IDLE_TIME = 200
+IDLE_TIME = 6     #200
 
 LONG_IDLE_TIME = 600
 
+HAND_WORKING_SPEED = 5
 
 ##################################################
 # RUNNING DETECTION
@@ -171,7 +172,7 @@ RUNNING_ENABLED = True
 
 FIRE_CONFIDENCE = 0.20
 
-FIRE_BEHAVIOUR_CONFIDENCE = 0.40
+FIRE_BEHAVIOUR_CONFIDENCE = 0.30
 
 FIRE_FRAME_THRESHOLD = 3
 
@@ -240,7 +241,7 @@ FALL_ALERT_DISPLAY_SECONDS = 8.0
 
 
 
-DEBUG = False
+DEBUG = True
 
 
 

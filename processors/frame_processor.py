@@ -316,7 +316,7 @@ class FrameProcessor:
         # Only ONE YOLO pose model is loaded.
         # ------------------------------------------------
 
-        if self.orchestrator.any_enabled(
+        if self.orchestrator.any_runtime_enabled(
             "pose",
             "suspicious_theft"
         ):
@@ -340,7 +340,7 @@ class FrameProcessor:
         # NORMAL POSE CLASSIFICATION
         # ------------------------------------------------
 
-        if self.orchestrator.enabled(
+        if self.orchestrator.runtime_enabled(
             "pose"
         ):
 
@@ -1269,7 +1269,7 @@ class FrameProcessor:
         # POSE MODEL
         ##################################################
 
-        if self.orchestrator.any_enabled(
+        if self.orchestrator.any_runtime_enabled(
             "pose",
             "suspicious_theft"
         ):
@@ -1299,9 +1299,34 @@ class FrameProcessor:
         # Person Processing
         ##################################################
 
+        # current_people = []
+
+        # if boxes.id is not None:
+
+        #     ids = (
+        #         boxes.id
+        #         .int()
+        #         .cpu()
+        #         .tolist()
+        #     )
+
+        #     xyxy = (
+        #         boxes.xyxy
+        #         .cpu()
+        #         .tolist()
+        #     )
+        
+        
         current_people = []
 
-        if boxes.id is not None:
+        # Active tracker IDs in THIS frame.
+        # Empty list is important when nobody is detected.
+        ids = []
+
+        if (
+            boxes is not None
+            and boxes.id is not None
+        ):
 
             ids = (
                 boxes.id
@@ -1309,12 +1334,14 @@ class FrameProcessor:
                 .cpu()
                 .tolist()
             )
-
+            
+            
             xyxy = (
                 boxes.xyxy
                 .cpu()
                 .tolist()
             )
+                    
 
             ##################################################
             # Update Person Memory
@@ -1358,7 +1385,7 @@ class FrameProcessor:
             ##################################################
 
             if (
-                self.orchestrator.any_enabled(
+                self.orchestrator.any_runtime_enabled(
                     "pose",
                     "suspicious_theft"
                 )
@@ -1384,7 +1411,7 @@ class FrameProcessor:
             ##################################################
 
             if (
-                self.orchestrator.enabled(
+                self.orchestrator.runtime_enabled(
                     "pose"
                 )
                 and self.pose_processor is not None
@@ -1498,14 +1525,49 @@ class FrameProcessor:
 
             # self.person_processor.memory.debug()                     # used only for debug
 
-            for person in (
+            # for person in (
 
-                self.person_processor
-                .memory
-                .all_people()
-                .values()
+            #     self.person_processor
+            #     .memory
+            #     .all_people()
+            #     .values()
 
-            ):
+            # ):
+
+            #     alerts = (
+            #         self.behaviour.process(
+            #             person
+            #         )
+            #     )
+
+            #     if alerts:
+
+            #         self.alert_overlay.update(
+            #             alerts
+            #         )
+
+            #         for alert in alerts:
+
+            #             print(alert)
+            
+            
+            
+            
+            
+            
+            
+            ##################################################
+            # CORE PERSON BEHAVIOURS
+            #
+            # IMPORTANT:
+            # Run behaviours only for people tracked in the
+            # CURRENT frame.
+            #
+            # This prevents stale IDs from continuing to
+            # generate alerts after BoT-SORT changes an ID.
+            ##################################################
+
+            for person in current_people:
 
                 alerts = (
                     self.behaviour.process(
@@ -1591,6 +1653,11 @@ class FrameProcessor:
                         cv2.LINE_AA
                     )
 
+
+
+
+
+            
         ##################################################
         # SLEEP ENGINE
         #
@@ -1903,6 +1970,24 @@ class FrameProcessor:
 
                     print(alert)
 
+        
+        
+        
+        ##################################################
+        # CLEANUP STALE PERSON MEMORY
+        #
+        # IMPORTANT:
+        # This is OUTSIDE every module-specific IF block.
+        # It runs once per frame.
+        ##################################################
+
+        self.person_processor.memory.cleanup_inactive(
+            active_ids=ids,
+            max_age_seconds=2.0
+        )
+                
+        
+        
         ##################################################
         # ALERT OVERLAY
         ##################################################
