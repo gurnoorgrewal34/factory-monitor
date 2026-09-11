@@ -26,7 +26,7 @@ class PersonTracker:
 
             persist=True,
 
-            tracker="botsort.yaml",
+            tracker="custom_botsort.yaml",
 
             conf=CONFIDENCE,
 

@@ -34,6 +34,10 @@ class CameraRepository:
 
             "enabled":
                 camera.enabled,
+                
+                
+            "status":
+                camera.status,
 
             # ------------------------------------------
             # SOURCE
@@ -69,6 +73,25 @@ class CameraRepository:
 
             "cctv_url":
                 camera.rtsp_url,
+                
+                
+            "resolution":
+                camera.resolution,
+
+            "camera_model":
+                camera.camera_model,
+
+            "plant_id":
+                camera.plant_id,
+
+            "department_id":
+                camera.department_id,
+
+            "workstation_id":
+                camera.workstation_id,
+
+            "notifications_enabled":
+                camera.notifications_enabled,
 
             # ------------------------------------------
             # VIDEO / WEBCAM
@@ -342,6 +365,9 @@ class CameraRepository:
                         "username"
                     ),
 
+            
+                    
+                    
                 password=
                     config.get(
                         "password"
@@ -382,6 +408,39 @@ class CameraRepository:
                     config.get(
                         "webcam_index"
                     ),
+                    
+                    
+                    
+                resolution=
+                    config.get(
+                        "resolution"
+                    ),
+
+                camera_model=
+                    config.get(
+                        "camera_model"
+                    ),
+
+                plant_id=
+                    config.get(
+                        "plant_id"
+                    ),
+
+                department_id=
+                    config.get(
+                        "department_id"
+                    ),
+
+                workstation_id=
+                    config.get(
+                        "workstation_id"
+                    ),
+
+                notifications_enabled=
+                    config.get(
+                        "notifications_enabled",
+                        False
+                    ),
 
                 # --------------------------------------
                 # AI MODULES
@@ -401,6 +460,13 @@ class CameraRepository:
                     config.get(
                         "enabled",
                         True
+                    ),
+                    
+                    
+               status=
+                    config.get(
+                        "status",
+                        "inactive"
                     ),
 
                 save_output=
@@ -505,9 +571,33 @@ class CameraRepository:
 
                 "modules":
                     "modules",
+                    
+                "status":
+                    "status",
 
                 "save_output":
                     "save_output",
+                    
+                    
+                    
+                    
+                "resolution":
+                    "resolution",
+
+                "camera_model":
+                    "camera_model",
+
+                "plant_id":
+                    "plant_id",
+
+                "department_id":
+                    "department_id",
+
+                "workstation_id":
+                    "workstation_id",
+
+                "notifications_enabled":
+                    "notifications_enabled",
             }
 
             for (
@@ -543,6 +633,64 @@ class CameraRepository:
             return self.to_config(
                 camera
             )
+            
+            
+    # ==================================================
+    # UPDATE CAMERA STATUS
+    # ==================================================
+
+    def update_status(
+        self,
+        camera_id,
+        status
+    ):
+
+        allowed_statuses = {
+            "active",
+            "inactive",
+            "standby",
+        }
+
+        status = (
+            str(status)
+            .strip()
+            .lower()
+        )
+
+        if status not in allowed_statuses:
+
+            raise ValueError(
+                f"Invalid camera status: {status}"
+            )
+
+        with SessionLocal() as db:
+
+            camera = (
+
+                db.query(
+                    Camera
+                )
+
+                .filter(
+                    Camera.id
+                    ==
+                    camera_id
+                )
+
+                .first()
+            )
+
+            if camera is None:
+
+                return False
+
+            camera.status = (
+                status
+            )
+
+            db.commit()
+
+            return True
 
     # ==================================================
     # DELETE

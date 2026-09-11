@@ -715,3 +715,101 @@ class CameraManager:
             for camera
             in self.cameras.values()
         ]
+        
+        
+        
+    # ==================================================
+    # SYNC RUNTIME WITH DATABASE
+    #
+    # PostgreSQL is the source of truth.
+    #
+    # Handles cameras deleted directly from DB.
+    # Does NOT disturb running detection logic.
+    # ==================================================
+
+    def sync_with_repository(
+        self
+    ):
+
+        if self.repository is None:
+
+            return
+
+        database_configs = (
+            self.repository
+            .get_all()
+        )
+
+        database_camera_ids = {
+
+            config["id"]
+
+            for config
+            in database_configs
+        }
+
+
+        # ==============================================
+        # FIND RUNTIME CAMERAS NO LONGER IN DATABASE
+        # ==============================================
+
+        runtime_camera_ids = list(
+            self.cameras.keys()
+        )
+
+
+        for camera_id in runtime_camera_ids:
+
+            if (
+                camera_id
+                in database_camera_ids
+            ):
+
+                continue
+
+
+            camera = (
+                self.cameras.get(
+                    camera_id
+                )
+            )
+
+
+            # ------------------------------------------
+            # Stop deleted camera safely
+            # ------------------------------------------
+
+            if (
+                camera is not None
+                and
+                camera.running
+            ):
+
+                try:
+
+                    camera.stop()
+
+                except Exception as exc:
+
+                    print(
+                        "CAMERA SYNC STOP WARNING ->",
+                        camera_id,
+                        repr(exc)
+                    )
+
+
+            # ------------------------------------------
+            # Remove stale runtime object
+            # ------------------------------------------
+
+            self.cameras.pop(
+                camera_id,
+                None
+            )
+
+
+            print(
+                "CAMERA SYNC -> "
+                f"Removed deleted camera: "
+                f"{camera_id}"
+            )

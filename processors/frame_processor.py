@@ -22,6 +22,10 @@ from processors.vehicle_processor import (
 )
 
 
+from tracking.stable_person_resolver import (
+    StablePersonResolver,
+)
+
 from app.config import (
     POSE_MODEL_PATH,
     INPUT_SOURCE,
@@ -86,6 +90,29 @@ class FrameProcessor:
     ):
 
         self.tracker = tracker
+        
+        
+        
+        ##################################################
+        # STABLE PERSON ID
+        #
+        # BoT-SORT raw IDs may fragment:
+        # 7 -> 11 -> 14
+        #
+        # This layer converts those temporary tracker IDs
+        # into one application-level person ID.
+        ##################################################
+
+        self.person_id_resolver = (
+            StablePersonResolver(
+                max_gap_seconds=3.0,
+                max_center_distance=0.75,
+                min_iou=0.05
+            )
+        )
+        
+        
+        # 
 
         self.zone_drawer = zone_drawer
 
@@ -719,6 +746,28 @@ class FrameProcessor:
         frame_time = self._get_frame_time(
             current_frame_idx
         )
+        
+        
+        
+        
+        ##################################################
+        # STABLE PERSON RESOLVER TIME
+        ##################################################
+
+        if hasattr(
+            frame_time,
+            "timestamp"
+        ):
+
+            resolver_timestamp = (
+                frame_time.timestamp()
+            )
+
+        else:
+
+            resolver_timestamp = (
+                time.time()
+            )
 
         ##################################################
         # Person Detection & Tracking
@@ -1294,87 +1343,154 @@ class FrameProcessor:
         annotated = self.zone_drawer.draw(
             annotated
         )
+        
+        
+        
+        ##################################################
+        # CAMERA PERSON-DETECTION STATE BORDER
+        #
+        # GREEN  = no person currently detected
+        # ORANGE = one or more persons detected / locked
+        ##################################################
+
+        frame_height, frame_width = (
+            annotated.shape[:2]
+        )
+
+        if (
+            boxes is not None
+            and boxes.id is not None
+            and len(boxes.id) > 0
+        ):
+
+            frame_border_color = (
+                0,
+                165,
+                255
+            )
+
+        else:
+
+            frame_border_color = (
+                0,
+                255,
+                0
+            )
+
+
+        cv2.rectangle(
+            annotated,
+            (2, 2),
+            (
+                frame_width - 3,
+                frame_height - 3
+            ),
+            frame_border_color,
+            4
+        )
 
         ##################################################
         # Person Processing
         ##################################################
 
-        # current_people = []
-
-        # if boxes.id is not None:
-
-        #     ids = (
-        #         boxes.id
-        #         .int()
-        #         .cpu()
-        #         .tolist()
-        #     )
-
-        #     xyxy = (
-        #         boxes.xyxy
-        #         .cpu()
-        #         .tolist()
-        #     )
-        
         
         current_people = []
-
-        # Active tracker IDs in THIS frame.
-        # Empty list is important when nobody is detected.
-        ids = []
+        raw_ids = []
+        stable_ids = []
+        xyxy = []
 
         if (
             boxes is not None
             and boxes.id is not None
         ):
 
-            ids = (
+            raw_ids = (
                 boxes.id
                 .int()
                 .cpu()
                 .tolist()
             )
-            
-            
+
             xyxy = (
                 boxes.xyxy
                 .cpu()
                 .tolist()
             )
-                    
 
-            ##################################################
-            # Update Person Memory
-            ##################################################
 
-            for track_id, box in zip(
-                ids,
-                xyxy
-            ):
+        ##################################################
+        # START STABLE-ID FRAME
+        #
+        # Runs every frame, even when raw_ids is empty.
+        ##################################################
 
-                person, alerts, draw_box = (
-                    self.person_processor.process(
+        self.person_id_resolver.begin_frame(
+            raw_ids
+        )
 
-                        track_id,
 
+        ##################################################
+        # UPDATE PERSON MEMORY
+        ##################################################
+
+        for raw_track_id, box in zip(
+            raw_ids,
+            xyxy
+        ):
+
+            stable_id = (
+                self.person_id_resolver.resolve(
+
+                    raw_track_id=
+                        raw_track_id,
+
+                    box=
                         box,
-                        frame_time=frame_time
 
-                    )
+                    timestamp=
+                        resolver_timestamp
+                )
+            )
+
+            stable_ids.append(
+                stable_id
+            )
+
+            person, alerts, draw_box = (
+                self.person_processor.process(
+
+                    stable_id,
+
+                    box,
+
+                    frame_time=
+                        frame_time
+                )
+            )
+
+            person[
+                "raw_track_id"
+            ] = raw_track_id
+
+            person[
+                "stable_person_id"
+            ] = stable_id
+
+            current_people.append(
+                person
+            )
+
+            if alerts:
+
+                self.alert_overlay.update(
+                    alerts
                 )
 
-                current_people.append(person)
+                for alert in alerts:
 
-                if alerts:
-
-                    self.alert_overlay.update(
-                        alerts
+                    print(
+                        alert
                     )
-
-                    for alert in alerts:
-
-                        print(alert)
-
 
             ##################################################
             # SHARED POSE MATCHING
@@ -1384,7 +1500,7 @@ class FrameProcessor:
             # - suspicious_theft
             ##################################################
 
-            if (
+        if (
                 self.orchestrator.any_runtime_enabled(
                     "pose",
                     "suspicious_theft"
@@ -1410,7 +1526,7 @@ class FrameProcessor:
             # the normal pose module.
             ##################################################
 
-            if (
+        if (
                 self.orchestrator.runtime_enabled(
                     "pose"
                 )
@@ -1452,7 +1568,7 @@ class FrameProcessor:
             # No second tracker or pose model is created.
             ##################################################
 
-            if (
+        if (
                 self.orchestrator.enabled(
                     "suspicious_theft"
                 )
@@ -1567,7 +1683,7 @@ class FrameProcessor:
             # generate alerts after BoT-SORT changes an ID.
             ##################################################
 
-            for person in current_people:
+        for person in current_people:
 
                 alerts = (
                     self.behaviour.process(
@@ -1589,16 +1705,22 @@ class FrameProcessor:
             # Draw Person Information
             ##################################################
 
-            for track_id, box in zip(
-                ids,
+        for stable_id, box in zip(
+                stable_ids,
                 xyxy
             ):
 
                 person = (
                     self.person_processor
                     .memory
-                    .get(track_id)
+                    .get(
+                        stable_id
+                    )
                 )
+
+                if person is None:
+
+                    continue
 
                 # print(
                 #     f"DRAW -> "
@@ -1619,6 +1741,57 @@ class FrameProcessor:
                         person
 
                     )
+                )
+                
+                
+                ##################################################
+                # LOCKED PERSON BOX
+                #
+                # Stable ID represents our application-level
+                # locked person identity.
+                ##################################################
+
+                x1, y1, x2, y2 = map(
+                    int,
+                    box
+                )
+
+                locked_color = (
+                    0,
+                    165,
+                    255
+                )
+
+                cv2.rectangle(
+                    annotated,
+                    (x1, y1),
+                    (x2, y2),
+                    locked_color,
+                    3
+                )
+
+
+                lock_label = (
+                    f"LOCKED - PERSON "
+                    f"{stable_id}"
+                )
+
+
+                cv2.putText(
+                    annotated,
+                    lock_label,
+                    (
+                        x1,
+                        max(
+                            20,
+                            y1 - 10
+                        )
+                    ),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    locked_color,
+                    2,
+                    cv2.LINE_AA
                 )
 
                 ##################################################
@@ -1982,10 +2155,27 @@ class FrameProcessor:
         ##################################################
 
         self.person_processor.memory.cleanup_inactive(
-            active_ids=ids,
-            max_age_seconds=2.0
+
+            active_ids=
+                stable_ids,
+
+            max_age_seconds=
+                3.5
         )
-                
+                        
+                        
+        ##################################################
+        # CLEANUP STABLE-ID RESOLVER HISTORY
+        ##################################################
+
+        self.person_id_resolver.cleanup(
+
+            timestamp=
+                resolver_timestamp,
+
+            max_age_seconds=
+                10.0
+        )
         
         
         ##################################################

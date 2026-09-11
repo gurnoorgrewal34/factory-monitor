@@ -838,6 +838,11 @@ class CameraRuntime:
     def stop(self):
 
         self.running = False
+        
+        
+        
+        with self.latest_frame_lock:
+             self.latest_frame = None
 
         ##################################################
         # Wait for runtime thread

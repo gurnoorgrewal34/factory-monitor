@@ -1,14 +1,19 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Column,
+    Integer,
+    String,
     Boolean,
     DateTime,
-    Integer,
-    Index,
-    String,
-    Text,
+    Date,
     Float,
+    Text,
+    ForeignKey,
     UniqueConstraint,
+    func,
+    Index,
+    CheckConstraint,
 )
 
 from sqlalchemy.dialects.postgresql import (
@@ -26,6 +31,17 @@ from database.database import Base
 class Camera(Base):
 
     __tablename__ = "cameras"
+    
+    
+    
+    __table_args__ = (
+
+        CheckConstraint(
+            "status IN ('active', 'inactive')",
+            name="chk_camera_status"
+        ),
+
+    )
 
     # ==================================================
     # INTERNAL DATABASE ID
@@ -251,7 +267,26 @@ class Camera(Base):
         default=True
     )
 
+    # ==================================================
+    # CAMERA OPERATIONAL STATUS
+    #
+    # Backend-controlled values:
+    #
+    # active
+    # inactive
+    # standby
+    # ==================================================
 
+    status: Mapped[str] = mapped_column(
+
+        String(20),
+
+        nullable=False,
+
+        default="inactive"
+    )
+    
+    
     save_output: Mapped[bool] = mapped_column(
 
         Boolean,
@@ -260,8 +295,45 @@ class Camera(Base):
 
         default=False
     )
+    
+    resolution = Column(
+        String(50),
+        nullable=True
+    )
 
+    camera_model = Column(
+        String(150),
+        nullable=True
+    )
 
+    plant_id = Column(
+        Integer,
+        ForeignKey("plants.id"),
+        nullable=True,
+        index=True
+    )
+
+    department_id = Column(
+        Integer,
+        ForeignKey("departments.id"),
+        nullable=True,
+        index=True
+    )
+
+    workstation_id = Column(
+        Integer,
+        ForeignKey("workstations.id"),
+        nullable=True,
+        index=True
+    )
+
+    notifications_enabled = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+    
+    
     # ==================================================
     # TIMESTAMPS
     # ==================================================
@@ -402,4 +474,473 @@ class VehicleLog(Base):
         nullable=False,
         default=datetime.utcnow,
         index=True
+    )
+    
+    
+class User(Base):
+
+    __tablename__ = "users"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    email = Column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    password = Column(
+        String(255),
+        nullable=False
+    )
+
+    role = Column(
+        String(100),
+        nullable=False
+    )
+    
+    
+    role_id = Column(
+        Integer,
+        ForeignKey("roles.id"),
+        nullable=True,
+        index=True
+    )
+
+    full_name = Column(
+        String(100),
+        nullable=False
+    )
+
+    job_title = Column(
+        String(100),
+        nullable=True
+    )
+
+    phone_number = Column(
+        String(20),
+        unique=True,
+        nullable=True
+    )
+
+    image_url = Column(
+        Text,
+        nullable=True
+    )
+
+    account_status = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    company = Column(
+        String(200),
+        nullable=True
+    )
+
+    plant = Column(
+        String(100),
+        nullable=True
+    )
+
+    department = Column(
+        String(100),
+        nullable=True
+    )
+
+    workstation = Column(
+        String(100),
+        nullable=True
+    )
+
+    created_time = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+    
+    
+# ==========================================================
+# COMPANY
+# ==========================================================
+
+class Company(Base):
+
+    __tablename__ = "companies"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    company_name = Column(
+        String(200),
+        nullable=False
+    )
+
+    gstin = Column(
+        String(20),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    industry = Column(
+        String(150),
+        nullable=False
+    )
+
+    city = Column(
+        String(100),
+        nullable=False
+    )
+
+    state = Column(
+        String(100),
+        nullable=False
+    )
+
+    contact_name = Column(
+        String(150),
+        nullable=False
+    )
+
+    contact_email = Column(
+        String(255),
+        nullable=False
+    )
+
+    contact_phone = Column(
+        String(30),
+        nullable=True
+    )
+
+    registration_date = Column(
+        Date,
+        server_default=func.current_date(),
+        nullable=False
+    )
+    
+    
+    status = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    company_logo = Column(
+        Text,
+        nullable=True
+    )
+
+    created_time = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+
+
+# ==========================================================
+# PLANT
+# ==========================================================
+
+class Plant(Base):
+
+    __tablename__ = "plants"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "plant_name",
+            name="uq_company_plant_name"
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    company_id = Column(
+        Integer,
+        ForeignKey("companies.id"),
+        nullable=False,
+        index=True
+    )
+    
+    
+    company_name = mapped_column(
+        String(200),
+        nullable=False
+    )
+
+    plant_name = Column(
+        String(200),
+        nullable=False
+    )
+
+    plant_type = Column(
+        String(100),
+        nullable=False
+    )
+
+    area_sq_ft = Column(
+        Float,
+        nullable=True
+    )
+
+    location = Column(
+        String(255),
+        nullable=False
+    )
+
+    plant_head = Column(
+        String(150),
+        nullable=False
+    )
+
+    status = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    created_time = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+
+
+# ==========================================================
+# DEPARTMENT
+# ==========================================================
+
+class Department(Base):
+
+    __tablename__ = "departments"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "plant_id",
+            "department_name",
+            name="uq_plant_department_name"
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    plant_id = Column(
+        Integer,
+        ForeignKey("plants.id"),
+        nullable=False,
+        index=True
+    )
+    
+    
+    plant_name = mapped_column(
+        String(200),
+        nullable=False
+    )
+
+    department_name = Column(
+        String(200),
+        nullable=False
+    )
+
+    department_head = Column(
+        String(150),
+        nullable=False
+    )
+
+    employee_count = Column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+
+    status = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    created_time = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+
+
+# ==========================================================
+# WORKSTATION
+# ==========================================================
+
+class Workstation(Base):
+
+    __tablename__ = "workstations"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "department_id",
+            "workstation_name",
+            name="uq_department_workstation_name"
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    department_id = Column(
+        Integer,
+        ForeignKey("departments.id"),
+        nullable=False,
+        index=True
+    )
+    
+    department_name = mapped_column(
+        String(200),
+        nullable=False
+    )
+
+    workstation_name = Column(
+        String(200),
+        nullable=False
+    )
+
+    workstation_type = Column(
+        String(100),
+        nullable=False
+    )
+
+    operator_name = Column(
+        String(150),
+        nullable=False
+    )
+
+    status = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    created_time = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+    
+    
+class Role(Base):
+
+    __tablename__ = "roles"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    name = Column(
+        String(100),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    display_name = Column(
+        String(150),
+        nullable=False
+    )
+
+    hierarchy_level = Column(
+        Integer,
+        nullable=False
+    )
+
+    scope_type = Column(
+        String(50),
+        nullable=False
+    )
+
+    is_active = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    created_time = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+    
+    
+    
+class AIProfile(Base):
+
+    __tablename__ = "ai_profiles"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    name = Column(
+        String(150),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+    
+    
+    
+    model_path_or_url = Column(
+        Text,
+        nullable=True
+    )
+
+    description = Column(
+        Text,
+        nullable=True
+    )
+
+    modules = Column(
+        JSONB,
+        nullable=False
+    )
+
+    is_active = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    created_time = Column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False
+    )
+
+    updated_time = Column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False
     )

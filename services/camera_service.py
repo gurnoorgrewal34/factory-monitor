@@ -284,6 +284,12 @@ class CameraService:
                     "enabled",
                     True
                 ),
+                
+            "status":
+                            data.get(
+                                "status",
+                                "inactive"
+                            ),
 
 
             # ----------------------------------------------
@@ -323,6 +329,58 @@ class CameraService:
                 rtsp_url,
 
 
+            
+            # ----------------------------------------------
+            # FRONTEND CAMERA METADATA
+            # ----------------------------------------------
+
+            "resolution":
+                data.get(
+                    "resolution"
+                ),
+
+            "camera_model":
+                data.get(
+                    "camera_model"
+                ),
+                        
+            
+            # ----------------------------------------------
+            # DEPLOYMENT LOCATION
+            # ----------------------------------------------
+
+            "plant_id":
+                data.get(
+                    "plant_id"
+                ),
+
+            "department_id":
+                data.get(
+                    "department_id"
+                ),
+
+            "workstation_id":
+                data.get(
+                    "workstation_id"
+                ),
+                
+                
+                
+                
+            # ----------------------------------------------
+            # NOTIFICATIONS
+            # ----------------------------------------------
+
+            "notifications_enabled":
+                data.get(
+                    "notifications_enabled",
+                    False
+                ),
+                
+                
+                
+            
+                                    
             # ----------------------------------------------
             # VIDEO / WEBCAM
             #
@@ -368,6 +426,15 @@ class CameraService:
             "zones_file":
                 None,
         }
+        
+        
+        
+        
+        
+        print("\n========== FINAL CAMERA CONFIG DEBUG ==========")
+        print("plant_id:", config.get("plant_id"))
+        print("department_id:", config.get("department_id"))
+        print("workstation_id:", config.get("workstation_id"))
 
 
         return config

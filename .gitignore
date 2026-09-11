@@ -22,8 +22,7 @@ datasets/
 .env
 .env.*
 
-# Runtime-generated tracker config
-custom_bytetrack.yaml
+
 
 # Temporary local zone notes
 zones_json_per.txt

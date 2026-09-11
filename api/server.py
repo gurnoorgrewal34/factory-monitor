@@ -29,7 +29,9 @@ from fastapi.responses import (
 from fastapi.middleware.cors import (
     CORSMiddleware,
 )
-
+from api.dashboard_routes import (
+    router as dashboard_router,
+)
 from pydantic import (
     BaseModel,
     Field,
@@ -49,6 +51,18 @@ from app.orchestrator import (
 
 from api.websocket_manager import (
     WebSocketManager,
+)
+
+from api.user_routes import (
+    router as user_router,
+)
+
+from api.auth_routes import (
+    router as auth_router,
+)
+
+from services.organization_service import (
+    OrganizationService,
 )
 
 from database.camera_repository import (
@@ -73,8 +87,16 @@ from alerts.alert_formatter import (
 )
 
 
-from fastapi.responses import (
-    StreamingResponse,
+from api.ai_profile_routes import (
+    router as ai_profile_router,
+)
+
+
+from api.organization_routes import (
+    router as organization_router,
+)
+from api.role_routes import (
+    router as role_router,
 )
 
 # ==================================================
@@ -107,7 +129,36 @@ app = FastAPI(
     )
 )
 
+# API ROUTES
+app.include_router(
+    user_router
+)
 
+app.include_router(
+    auth_router
+)
+app.include_router(
+    organization_router
+)
+
+
+organization_service = (
+    OrganizationService()
+)
+
+app.include_router(
+    dashboard_router
+)
+
+
+app.include_router(
+    ai_profile_router
+)
+
+
+app.include_router(
+    role_router
+)
 # ==================================================
 # CORS
 # ==================================================
@@ -117,7 +168,17 @@ app.add_middleware(
 
     # Development setting.
     # Restrict this in production.
-    allow_origins=["http://192.168.1.8:5173"],
+    # allow_origins=["http://192.168.1.2:8443"], 
+    
+        allow_origins=[
+        "http://192.168.1.4:8443",
+        "https://192.168.1.4:8443",
+        "http://localhost:8443",
+        "https://localhost:8443",
+        "http://127.0.0.4:8443",
+        "https://127.0.0.4:8443",
+    ],
+
 
     allow_credentials=False,
 
@@ -145,6 +206,8 @@ camera_manager = CameraManager(
     repository=
         camera_repository
 )
+
+app.state.camera_manager = camera_manager
 
 websocket_manager = (
     WebSocketManager()
@@ -225,96 +288,105 @@ class ZoneUpdateRequest(
     zone_type: str = "normal"
     
     
-    
+
 class CameraCreateRequest(
-    BaseModel
-):
+        BaseModel
+    ):
 
-    name: str = Field(
-        min_length=1
-    )
+        # ==================================================
+        # CAMERA IDENTITY
+        # ==================================================
 
-    # cctv / video / webcam
-    # source_type: str = "cctv"
+        name: str = Field(
+            min_length=1
+        )
 
-    # ----------------------------------------------
-    # CCTV
-    # ----------------------------------------------
+        brand: Optional[str] = None
 
-    brand: Optional[str] = None
+        resolution: Optional[str] = None
 
-    camera_ip: Optional[str] = None
+        camera_model: Optional[str] = None
 
-    username: Optional[str] = None
 
-    password: Optional[str] = None
+        # ==================================================
+        # CCTV CONNECTION
+        # ==================================================
 
-    rtsp_port: int = 554
+        camera_ip: Optional[str] = None
 
-    # ----------------------------------------------
-    # CAMERA / NVR CHANNEL
-    #
-    # Optional.
-    #
-    # If not supplied, channel 1 is used.
-    #
-    # Useful when multiple CCTV feeds share:
-    #
-    # same IP
-    # same username
-    # same password
-    #
-    # but use different NVR/DVR channels.
-    # ----------------------------------------------
+        username: Optional[str] = None
 
-    channel: Optional[int] = Field(
-        default=1,
-        ge=1
-    )
+        password: Optional[str] = None
 
-    # Used only when:
-    # brand = custom
-    #
-    # Keeping this for now internally.
-    # Later frontend does not need to show it
-    # for known camera brands.
-    stream_path: Optional[str] = None
+        rtsp_port: int = 554
 
-    # ----------------------------------------------
-    # VIDEO
-    # ----------------------------------------------
+        channel: Optional[int] = Field(
+            default=1,
+            ge=1
+        )
 
-    # video_path: Optional[str] = None
+        stream_path: Optional[str] = None
 
-    # ----------------------------------------------
-    # WEBCAM
-    # ----------------------------------------------
 
-    # webcam_index: int = 0
+        # ==================================================
+        # DEPLOYMENT LOCATION
+        # ==================================================
 
-    # ----------------------------------------------
-    # AI
-    # ----------------------------------------------
+        # plant_id: Optional[int] = Field(
+        #     default=None,
+        #     gt=0
+        # )
 
-    # Multiple modules supported.
-    #
-    # Examples:
-    #
-    # ["helmet"]
-    #
-    # ["helmet", "fire", "smoke"]
-    #
-    # ["all"]
+        # department_id: Optional[int] = Field(
+        #     default=None,
+        #     gt=0
+        # )
 
-    modules: List[str] = [
-        "all"
-    ]
+        # workstation_id: Optional[int] = Field(
+        #     default=None,
+        #     gt=0
+        # )
+        
+        company_id: int
+        company_name: str
+
+        plant_id: int
+        plant_name: str
+
+        department_id: int
+        department_name: str
+
+        workstation_id: int
+        workstation_name: str
+
+
+        # ==================================================
+        # AI MODULES
+        #
+        # IMPORTANT:
+        # Existing runtime architecture remains unchanged.
+        # ==================================================
+
+        modules: List[str] = [
+            "all"
+        ]
+
+
+        # ==================================================
+        # CAMERA STATUS
+        # ==================================================
+
+        enabled: bool = True
+
+        status: str = "inactive"
+        # ==================================================
+        # NOTIFICATIONS
+        # ==================================================
+
+        notifications_enabled: bool = False
+
+
     
-
-
-    # enabled: bool = True
-
-    # save_output: bool = False
 
 class CameraUpdateRequest(
     BaseModel
@@ -342,6 +414,8 @@ class CameraUpdateRequest(
     )
 
     stream_path: Optional[str] = None
+    
+    status: Optional[str] = None
 
     # video_path: Optional[str] = None
 
@@ -352,6 +426,37 @@ class CameraUpdateRequest(
     modules: Optional[List[str]] = None
 
     save_output: Optional[bool] = None
+    
+    
+    
+    resolution: Optional[str] = None
+
+    camera_model: Optional[str] = None
+
+    # plant_id: Optional[int] = Field(
+    #     default=None,
+    #     gt=0
+    # )
+
+    # department_id: Optional[int] = Field(
+    #     default=None,
+    #     gt=0
+    # )
+
+    # workstation_id: Optional[int] = Field(
+    #     default=None,
+    #     gt=0
+    # )
+    
+    company: Optional[str] = None
+    
+    plant: Optional[str] = None
+
+    department: Optional[str] = None
+
+    workstation: Optional[str] = None
+
+    notifications_enabled: Optional[bool] = None
 
 
 # ==================================================
@@ -361,6 +466,9 @@ class CameraUpdateRequest(
 def get_camera_or_404(
     camera_id: str
 ):
+
+    # Keep runtime synchronized with PostgreSQL.
+    camera_manager.sync_with_repository()
 
     camera = camera_manager.get_camera(
         camera_id
@@ -380,7 +488,6 @@ def get_camera_or_404(
 
 
 
-
 def get_camera_zone_engine(
     camera_id
 ):
@@ -415,38 +522,7 @@ def get_camera_zone_engine(
     
     
     
-    
-def get_camera_zone_engine(
-    camera_id
-):
 
-    camera = get_camera_or_404(
-        camera_id
-    )
-
-    zones_file = (
-        camera.config.get(
-            "zones_file"
-        )
-        or
-        (
-            f"zones/data/"
-            f"{camera_id}.json"
-        )
-    )
-
-    if not os.path.isabs(
-        zones_file
-    ):
-
-        zones_file = os.path.join(
-            BASE_DIR,
-            zones_file
-        )
-
-    return ZoneEngine(
-        zones_file
-    )
     
 # ==================================================
 # FRONTEND-SAFE CAMERA RESPONSE
@@ -455,6 +531,32 @@ def get_camera_zone_engine(
 # - Never return CCTV password
 # - Never return raw unmasked RTSP credentials
 # ==================================================
+# ==================================================
+# CAMERA DISPLAY STATUS
+# ==================================================
+
+def get_camera_display_status(
+    camera
+):
+
+    configured_status = (
+        str(
+            camera.config.get(
+                "status",
+                "inactive"
+            )
+        )
+        .strip()
+        .lower()
+    )
+
+    if configured_status not in {
+        "active",
+        "inactive",
+    }:
+        return "inactive"
+
+    return configured_status
 
 def build_camera_response(
     camera
@@ -463,6 +565,43 @@ def build_camera_response(
     status = camera.get_status()
 
     config = camera.config
+    
+    
+    display_status = (
+            get_camera_display_status(
+                camera
+            )
+        )
+    
+    
+    
+    # ==============================================
+    # KEEP DATABASE STATUS SYNCHRONIZED
+    # ==============================================
+
+    
+
+
+    location = (
+            organization_service
+            .get_camera_location_details(
+
+                plant_id=
+                    config.get(
+                        "plant_id"
+                    ),
+
+                department_id=
+                    config.get(
+                        "department_id"
+                    ),
+
+                workstation_id=
+                    config.get(
+                        "workstation_id"
+                    )
+            )
+        )
 
     camera_id = status.get(
         "camera_id"
@@ -495,9 +634,88 @@ def build_camera_response(
             status.get(
                 "running"
             ),
+            
+        "status":
+            display_status,
 
         "source_type":
             source_type,
+
+
+        # ==========================================
+        # CAMERA METADATA
+        # ==========================================
+
+        "resolution":
+            config.get(
+                "resolution"
+            ),
+
+        "camera_model":
+            config.get(
+                "camera_model"
+            ),
+
+
+        # ==========================================
+        # DEPLOYMENT LOCATION
+        # ==========================================
+
+        # ==========================================
+        # DEPLOYMENT LOCATION
+        # ==========================================
+
+        "company_id":
+            location.get(
+                "company_id"
+            ),
+
+        "company_name":
+            location.get(
+                "company_name"
+            ),
+
+        "plant_id":
+            location.get(
+                "plant_id"
+            ),
+
+        "plant_name":
+            location.get(
+                "plant_name"
+            ),
+
+        "department_id":
+            location.get(
+                "department_id"
+            ),
+
+        "department_name":
+            location.get(
+                "department_name"
+            ),
+
+        "workstation_id":
+            location.get(
+                "workstation_id"
+            ),
+
+        "workstation_name":
+            location.get(
+                "workstation_name"
+            ),
+
+
+        # ==========================================
+        # NOTIFICATIONS
+        # ==========================================
+
+        "notifications_enabled":
+            config.get(
+                "notifications_enabled",
+                False
+            ),
+
 
         # ==========================================
         # CCTV
@@ -512,8 +730,7 @@ def build_camera_response(
             config.get(
                 "camera_ip"
             ),
-            
-            
+
         "username":
             config.get(
                 "username"
@@ -523,12 +740,12 @@ def build_camera_response(
             config.get(
                 "rtsp_port"
             ),
-            
+
         "channel":
             config.get(
                 "channel",
                 1
-            ),    
+            ),
 
         "stream_path":
             config.get(
@@ -549,6 +766,7 @@ def build_camera_response(
                 )
             ),
 
+
         # ==========================================
         # VIDEO
         # ==========================================
@@ -557,6 +775,7 @@ def build_camera_response(
             config.get(
                 "video_path"
             ),
+
 
         # ==========================================
         # WEBCAM
@@ -567,6 +786,7 @@ def build_camera_response(
                 "webcam_index"
             ),
 
+
         # ==========================================
         # AI
         # ==========================================
@@ -576,6 +796,7 @@ def build_camera_response(
                 "modules",
                 []
             ),
+
 
         # ==========================================
         # PROCESSING STATUS
@@ -602,6 +823,7 @@ def build_camera_response(
             status.get(
                 "last_error"
             ),
+
 
         # ==========================================
         # FRONTEND ENDPOINTS
@@ -748,7 +970,42 @@ def validate_modules(
     return modules
 
 
+def validate_camera_status(
+    status
+):
 
+    if status is None:
+
+        return None
+
+    status = (
+        str(status)
+        .strip()
+        .lower()
+    )
+
+    allowed_statuses = {
+        "active",
+        "inactive",
+        
+    }
+
+    if status not in allowed_statuses:
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message":
+                    "Invalid camera status",
+
+                "allowed_statuses":
+                    sorted(
+                        allowed_statuses
+                    )
+            }
+        )
+
+    return status
 
 # ==================================================
 # CAMERA -> WEBSOCKET CALLBACK
@@ -906,14 +1163,14 @@ def camera_alert_callback(
 
 def register_camera_callbacks():
 
-    for status in (
+    for status_data in (
         camera_manager.get_status()
     ):
 
         camera = (
             camera_manager
             .get_camera(
-                status[
+                status_data[
                     "camera_id"
                 ]
             )
@@ -1017,15 +1274,106 @@ def health():
 # ==================================================
 # GET ALL CAMERAS
 #
-# Frontend receives everything it needs.
+# Main Camera Monitoring API
 # ==================================================
 
-@app.get("/cameras")
-def cameras():
+# ==================================================
+# GET ALL CAMERAS
+#
+# Main Camera Monitoring API
+#
+# Supports:
+# - Plant filter
+# - Department filter
+# - Workstation filter
+# - Search
+# - Status filter
+# - Online / Standby / Offline summary
+# ==================================================
+
+@app.get(
+    "/cameras"
+)
+def cameras(
+    plant_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+    workstation_id: Optional[int] = None,
+    search: Optional[str] = None,
+    status: Optional[str] = None
+):
+
+    # ==============================================
+    # 1. VALIDATE STATUS FILTER
+    # ==============================================
+
+    status_value = None
+
+    if status:
+
+        status_value = (
+            status
+            .strip()
+            .lower()
+        )
+
+        allowed_statuses = {
+            "active",
+            
+            "inactive",
+        }
+
+        if (
+            status_value
+            not in allowed_statuses
+        ):
+
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message":
+                        "Invalid camera status",
+
+                    "allowed_statuses":
+                        sorted(
+                            allowed_statuses
+                        )
+                }
+            )
+
+
+    # ==============================================
+    # 2. NORMALIZE SEARCH
+    # ==============================================
+
+    search_value = None
+
+    if search:
+
+        search_value = (
+            search
+            .strip()
+            .lower()
+        )
+        
+        
+    # ==============================================
+    # SYNC CAMERA RUNTIME WITH POSTGRESQL
+    #
+    # PostgreSQL is the source of truth.
+    # Removes cameras that were manually deleted
+    # from the database.
+    # ==============================================
+
+    camera_manager.sync_with_repository()
+
+
+    # ==============================================
+    # 3. BUILD CAMERA LIST
+    # ==============================================
 
     camera_objects = []
 
-    for status in (
+    for status_data in (
         camera_manager
         .get_status()
     ):
@@ -1033,31 +1381,248 @@ def cameras():
         camera = (
             camera_manager
             .get_camera(
-                status[
+                status_data[
                     "camera_id"
                 ]
             )
         )
 
-        if camera is not None:
+        if camera is None:
+            continue
 
-            camera_objects.append(
-                build_camera_response(
-                    camera
-                )
+
+        config = (
+            camera.config
+        )
+
+
+        # ==========================================
+        # PLANT FILTER
+        # ==========================================
+
+        if (
+            plant_id is not None
+            and
+            config.get(
+                "plant_id"
+            )
+            !=
+            plant_id
+        ):
+            continue
+
+
+        # ==========================================
+        # DEPARTMENT FILTER
+        # ==========================================
+
+        if (
+            department_id is not None
+            and
+            config.get(
+                "department_id"
+            )
+            !=
+            department_id
+        ):
+            continue
+
+
+        # ==========================================
+        # WORKSTATION FILTER
+        # ==========================================
+
+        if (
+            workstation_id is not None
+            and
+            config.get(
+                "workstation_id"
+            )
+            !=
+            workstation_id
+        ):
+            continue
+
+
+        # ==========================================
+        # FRONTEND-SAFE CAMERA RESPONSE
+        #
+        # This already contains:
+        #
+        # plant_id
+        # plant_name
+        # department_id
+        # department_name
+        # workstation_id
+        # workstation_name
+        # status
+        # modules
+        # stream_url
+        # etc.
+        # ==========================================
+
+        camera_data = (
+            build_camera_response(
+                camera
+            )
+        )
+
+
+        # ==========================================
+        # STATUS FILTER
+        # ==========================================
+
+        if (
+            status_value is not None
+            and
+            camera_data.get(
+                "status"
+            )
+            !=
+            status_value
+        ):
+
+            continue
+
+
+        # ==========================================
+        # SEARCH FILTER
+        # ==========================================
+
+        if search_value:
+
+            searchable_values = [
+
+                camera_data.get(
+                    "camera_id"
+                ),
+
+                camera_data.get(
+                    "name"
+                ),
+
+                camera_data.get(
+                    "camera_ip"
+                ),
+
+                camera_data.get(
+                    "company_name"
+                ),
+
+                camera_data.get(
+                    "plant_name"
+                ),
+
+                camera_data.get(
+                    "department_name"
+                ),
+
+                camera_data.get(
+                    "workstation_name"
+                ),
+
+                camera_data.get(
+                    "brand"
+                ),
+
+                camera_data.get(
+                    "camera_model"
+                ),
+            ]
+
+            searchable_text = " ".join(
+
+                str(value)
+                .lower()
+
+                for value
+                in searchable_values
+
+                if value is not None
             )
 
-    running_count = sum(
+            if (
+                search_value
+                not in searchable_text
+            ):
+
+                continue
+
+
+        # ==========================================
+        # ADD CAMERA
+        # ==========================================
+
+        camera_objects.append(
+            camera_data
+        )
+
+
+    # ==============================================
+    # 4. CAMERA STATUS COUNTS
+    # ==============================================
+
+    active_count = sum(
 
         1
 
         for camera
         in camera_objects
 
-        if camera[
-            "running"
-        ]
+        if (
+            camera.get(
+                "status"
+            )
+            ==
+            "active"
+        )
     )
+
+
+    # standby_count = sum(
+
+    #     1
+
+    #     for camera
+    #     in camera_objects
+
+    #     if (
+    #         camera.get(
+    #             "status"
+    #         )
+    #         ==
+    #         "standby"
+    #     )
+    # )
+
+
+    inactive_count = sum(
+
+        1
+
+        for camera
+        in camera_objects
+
+        if (
+            camera.get(
+                "status"
+            )
+            ==
+            "inactive"
+        )
+    )
+
+
+    total_cameras = (
+        len(
+            camera_objects
+        )
+    )
+
+
+    # ==============================================
+    # 5. RESPONSE
+    # ==============================================
 
     return {
 
@@ -1067,21 +1632,42 @@ def cameras():
         "message":
             "Camera list retrieved successfully",
 
-        "total_cameras":
-            len(
-                camera_objects
-            ),
 
-        "running_cameras":
-            running_count,
+        # ==========================================
+        # FRONTEND SUMMARY CARDS
+        # ==========================================
+
+        "summary": {
+
+            "total":
+                total_cameras,
+
+            "active":
+                active_count,
+
+            # "standby":
+            #     standby_count,
+
+            "inactive":
+                inactive_count,
+        },
+
+
+        # ==========================================
+        # CAMERA CARDS
+        # ==========================================
 
         "cameras":
             camera_objects,
 
+
+        # ==========================================
+        # LIVE ALERT SOCKET
+        # ==========================================
+
         "websocket_url":
             "/ws/alerts"
     }
-
 
 # ============================
 # ADD CAMERA
@@ -1100,52 +1686,87 @@ def create_camera(
     try:
 
         # ==========================================
-        # 1. VALIDATE REQUESTED AI MODULES
+        # 1. VALIDATE AI MODULES
+        #
+        # Existing logic - unchanged
         # ==========================================
 
         modules = validate_modules(
             request.modules
         )
 
+
+        camera_status = (
+            validate_camera_status(
+                request.status
+            )
+        )
+
         # ==========================================
-        # 2. CONVERT PYDANTIC REQUEST -> DICT
+        # VALIDATE DEPLOYMENT LOCATION BY ID
+        # ==========================================
+
+        organization_service.validate_camera_location(
+            company_id=request.company_id,
+            plant_id=request.plant_id,
+            department_id=request.department_id,
+            workstation_id=request.workstation_id,
+        )
+
+        plant_id = request.plant_id
+        department_id = request.department_id
+        workstation_id = request.workstation_id
+
+        # ==========================================
+        # 3. PYDANTIC -> DICT
         # ==========================================
 
         request_data = (
             request.model_dump()
         )
-        print(
-            "SERVER REQUEST MODULES ->",
-            request.modules
+        
+        request_data["status"] = (
+            camera_status
         )
+                
+        request_data["plant_id"] = plant_id
+        request_data["department_id"] = department_id
+        request_data["workstation_id"] = workstation_id
+        
+        
+        print("\n========== REQUEST DATA DEBUG ==========")
+        print("plant_id:", request_data.get("plant_id"))
+        print("department_id:", request_data.get("department_id"))
+        print("workstation_id:", request_data.get("workstation_id"))
+        print("========================================\n")
+        
+        
+        request_data.pop(
+            "company",
+            None
+        )
+        request_data.pop("company_id", None)
+        request_data.pop("company_name", None)
+
+        request_data.pop("plant_name", None)
+        request_data.pop("department_name", None)
+        request_data.pop("workstation_name", None)
+
 
         # ==========================================
-        # KEEP INTERNAL MODULE ARCHITECTURE
-        # AS A LIST
-        #
-        # Examples:
-        #
-        # ["helmet"]
-        #
-        # ["helmet", "fire"]
-        #
-        # ["all"]
+        # 4. KEEP EXISTING MODULE ARCHITECTURE
         # ==========================================
 
         request_data[
             "modules"
         ] = modules
 
+
         # ==========================================
-        # 3. BUILD NORMALIZED CAMERA CONFIG
+        # 5. BUILD CAMERA CONFIG
         #
-        # CameraService handles:
-        #
-        # - automatic camera ID
-        # - CCTV configuration
-        # - camera brand
-        # - camera / NVR channel
-        # - RTSP URL generation
+        # Existing CameraService / RTSP logic
+        # remains unchanged.
         # ==========================================
 
         camera_config = (
@@ -1155,9 +1776,10 @@ def create_camera(
             )
         )
 
+
         # ==========================================
-        # 4. SAVE TO POSTGRESQL
-        #    + CREATE CAMERA RUNTIME
+        # 6. SAVE TO POSTGRESQL
+        # + CREATE CAMERA RUNTIME
         # ==========================================
 
         camera = (
@@ -1167,16 +1789,18 @@ def create_camera(
             )
         )
 
+
         # ==========================================
-        # 5. REGISTER WEBSOCKET CALLBACK
+        # 7. ALERT CALLBACK
         # ==========================================
 
         camera.set_alert_callback(
             camera_alert_callback
         )
 
+
         # ==========================================
-        # 6. SUCCESS RESPONSE
+        # 8. RESPONSE
         # ==========================================
 
         return success_response(
@@ -1186,17 +1810,11 @@ def create_camera(
             camera=camera
         )
 
-    # ==============================================
-    # FASTAPI / MODULE VALIDATION ERRORS
-    # ==============================================
 
     except HTTPException:
 
         raise
 
-    # ==============================================
-    # BAD CAMERA CONFIGURATION
-    # ==============================================
 
     except ValueError as exc:
 
@@ -1205,9 +1823,6 @@ def create_camera(
             detail=str(exc)
         )
 
-    # ==============================================
-    # UNEXPECTED ERROR
-    # ==============================================
 
     except Exception as exc:
 
@@ -1223,6 +1838,10 @@ def create_camera(
                 f"{exc}"
             )
         )
+        
+        
+        
+        
 
 # ==================================================
 # GET CAMERA
@@ -1251,6 +1870,10 @@ def camera_status(
 # UPDATE CAMERA CONFIG
 # ==================================================
 
+# ==================================================
+# UPDATE CAMERA CONFIG
+# ==================================================
+
 @app.put(
     "/cameras/{camera_id}"
 )
@@ -1263,6 +1886,10 @@ def update_camera(
         camera_id
     )
 
+    # ==============================================
+    # CAMERA MUST BE STOPPED BEFORE UPDATE
+    # ==============================================
+
     if camera.running:
 
         raise HTTPException(
@@ -1273,22 +1900,188 @@ def update_camera(
             )
         )
 
+
+    # ==============================================
+    # REQUEST -> UPDATE DICTIONARY
+    # ==============================================
+
     updates = (
         request.model_dump(
             exclude_unset=True
         )
     )
+    
+    
+    if "status" in updates:
 
-    # ----------------------------------------------
-    # Validate modules
-    # ----------------------------------------------
+        updates["status"] = (
+            validate_camera_status(
+                updates["status"]
+            )
+        )
+
+
+    # ==============================================
+    # UPDATE DEPLOYMENT LOCATION BY NAME
+    #
+    # Frontend sends:
+    #
+    # company
+    # plant
+    # department
+    # workstation
+    #
+    # Backend resolves them to IDs.
+    # ==============================================
+
+    location_fields = {
+        "company",
+        "plant",
+        "department",
+        "workstation",
+    }
+
+    if any(
+        field in updates
+        for field in location_fields
+    ):
+
+        company_name = (
+            updates.get(
+                "company"
+            )
+        )
+
+        plant_name = (
+            updates.get(
+                "plant"
+            )
+        )
+
+        department_name = (
+            updates.get(
+                "department"
+            )
+        )
+
+        workstation_name = (
+            updates.get(
+                "workstation"
+            )
+        )
+
+
+        # ==========================================
+        # REQUIRE COMPLETE LOCATION HIERARCHY
+        # ==========================================
+
+        if not all(
+            [
+                company_name,
+                plant_name,
+                department_name,
+                workstation_name,
+            ]
+        ):
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Company, plant, department "
+                    "and workstation must all be "
+                    "provided when changing "
+                    "camera location."
+                )
+            )
+
+
+        # ==========================================
+        # RESOLVE NAMES -> IDs
+        # ==========================================
+
+        location = (
+            organization_service
+            .resolve_camera_location_by_name(
+
+                company_name=
+                    company_name,
+
+                plant_name=
+                    plant_name,
+
+                department_name=
+                    department_name,
+
+                workstation_name=
+                    workstation_name,
+            )
+        )
+        
+        
+        print("\n========== CAMERA LOCATION DEBUG ==========")
+        print("Resolved location:", location)
+        print("===========================================\n")
+
+
+        # ==========================================
+        # STORE INTERNAL IDS
+        # ==========================================
+
+        updates[
+            "plant_id"
+        ] = location[
+            "plant_id"
+        ]
+
+        updates[
+            "department_id"
+        ] = location[
+            "department_id"
+        ]
+
+        updates[
+            "workstation_id"
+        ] = location[
+            "workstation_id"
+        ]
+
+
+        # ==========================================
+        # REMOVE FRONTEND-ONLY NAME FIELDS
+        #
+        # Camera config/database should continue
+        # storing IDs internally.
+        # ==========================================
+
+        updates.pop(
+            "company",
+            None
+        )
+
+        updates.pop(
+            "plant",
+            None
+        )
+
+        updates.pop(
+            "department",
+            None
+        )
+
+        updates.pop(
+            "workstation",
+            None
+        )
+
+
+    # ==============================================
+    # VALIDATE AI MODULES
+    # ==============================================
 
     if (
         "modules" in updates
         and
-        updates[
-            "modules"
-        ] is not None
+        updates["modules"] is not None
     ):
 
         updates[
@@ -1299,16 +2092,17 @@ def update_camera(
             ]
         )
 
-    # ----------------------------------------------
-    # Source type
-    # ----------------------------------------------
 
-    source_type = updates.get(
+    # ==============================================
+    # SOURCE TYPE
+    # ==============================================
 
-        "source_type",
-
-        camera.config.get(
-            "source_type"
+    source_type = (
+        updates.get(
+            "source_type",
+            camera.config.get(
+                "source_type"
+            )
         )
     )
 
@@ -1324,9 +2118,10 @@ def update_camera(
             "source_type"
         ] = source_type
 
-    # ----------------------------------------------
-    # CCTV connection changes
-    # ----------------------------------------------
+
+    # ==============================================
+    # CCTV CONNECTION FIELDS
+    # ==============================================
 
     cctv_fields = {
 
@@ -1336,8 +2131,9 @@ def update_camera(
         "password",
         "rtsp_port",
         "channel",
-        "stream_path"
+        "stream_path",
     }
+
 
     if (
         source_type == "cctv"
@@ -1348,62 +2144,76 @@ def update_camera(
         )
     ):
 
-        camera_ip = updates.get(
-
-            "camera_ip",
-
-            camera.config.get(
-                "camera_ip"
+        camera_ip = (
+            updates.get(
+                "camera_ip",
+                camera.config.get(
+                    "camera_ip"
+                )
             )
         )
 
-        rtsp_port = updates.get(
-
-            "rtsp_port",
-
-            camera.config.get(
+        rtsp_port = (
+            updates.get(
                 "rtsp_port",
-                554
+                camera.config.get(
+                    "rtsp_port",
+                    554
+                )
             )
         )
-        
-        brand = updates.get(
 
-            "brand",
-
-            camera.config.get(
+        brand = (
+            updates.get(
                 "brand",
-                "other"
+                camera.config.get(
+                    "brand",
+                    "other"
+                )
+            )
+        )
+
+        channel = (
+            updates.get(
+                "channel",
+                camera.config.get(
+                    "channel",
+                    1
+                )
+            )
+        )
+
+        stream_path = (
+            updates.get(
+                "stream_path",
+                camera.config.get(
+                    "stream_path"
+                )
             )
         )
 
 
-        channel = updates.get(
+        # ==========================================
+        # CREDENTIALS
+        # ==========================================
 
-        "channel",
-
-        camera.config.get(
-            "channel",
-            1
-        )
-    )
-
-        stream_path = updates.get(
-
-            "stream_path",
-
-            camera.config.get(
-                "stream_path"
+        username = (
+            updates.get(
+                "username"
             )
         )
 
-        username = updates.get(
-            "username"
+        password = (
+            updates.get(
+                "password"
+            )
         )
 
-        password = updates.get(
-            "password"
-        )
+
+        # ==========================================
+        # IF CCTV CONNECTION IS BEING CHANGED,
+        # REQUIRE BOTH USERNAME AND PASSWORD
+        # ==========================================
 
         if (
             username is None
@@ -1420,24 +2230,37 @@ def update_camera(
                 )
             )
 
+
+        # ==========================================
+        # BUILD RTSP URL
+        # ==========================================
+
         updates[
             "cctv_url"
         ] = RTSPService.build_url(
 
-            camera_ip=camera_ip,
-            
-            brand=brand,
+            camera_ip=
+                camera_ip,
 
-            username=username,
+            brand=
+                brand,
 
-            password=password,
+            username=
+                username,
 
-            rtsp_port=rtsp_port,
-            
-            channel=channel,
+            password=
+                password,
 
-            stream_path=stream_path
+            rtsp_port=
+                rtsp_port,
+
+            channel=
+                channel,
+
+            stream_path=
+                stream_path
         )
+
 
         updates[
             "camera_ip"
@@ -1446,23 +2269,24 @@ def update_camera(
         updates[
             "rtsp_port"
         ] = rtsp_port
-        
-        
+
         updates[
             "brand"
         ] = brand
 
-
         updates[
             "channel"
         ] = channel
-        
+
         updates[
             "stream_path"
         ] = stream_path
 
-        # Never persist duplicate plain-text
-        # username/password fields.
+
+        # ==========================================
+        # DO NOT STORE PLAIN PASSWORD FIELDS
+        # ==========================================
+
         updates.pop(
             "username",
             None
@@ -1472,6 +2296,11 @@ def update_camera(
             "password",
             None
         )
+
+
+    # ==============================================
+    # UPDATE CAMERA
+    # ==============================================
 
     try:
 
@@ -1483,35 +2312,55 @@ def update_camera(
             )
         )
 
+
     except ValueError as exc:
 
         raise HTTPException(
             status_code=400,
-            detail=str(exc)
+            detail=str(
+                exc
+            )
         )
+
 
     except RuntimeError as exc:
 
         raise HTTPException(
             status_code=409,
-            detail=str(exc)
+            detail=str(
+                exc
+            )
         )
 
+
     except Exception as exc:
+
+        print(
+            "CAMERA UPDATE ERROR ->",
+            repr(
+                exc
+            )
+        )
 
         raise HTTPException(
             status_code=500,
             detail=(
-                f"Could not update camera: "
+                "Could not update camera: "
                 f"{exc}"
             )
         )
+
+
+    # ==============================================
+    # RESPONSE
+    # ==============================================
 
     return success_response(
 
         "Camera updated successfully",
 
-        camera=camera
+        camera=
+            camera
     )
 
 
@@ -1570,6 +2419,10 @@ def delete_camera(
 # START CAMERA
 # ==================================================
 
+# ==================================================
+# START CAMERA
+# ==================================================
+
 @app.post(
     "/cameras/{camera_id}/start"
 )
@@ -1581,22 +2434,71 @@ def start_camera(
         camera_id
     )
 
-    started = camera.start()
+
+    # ==============================================
+    # ALREADY RUNNING
+    # ==============================================
+
+    if camera.running:
+
+        return success_response(
+
+            "Camera is already running",
+
+            camera=camera,
+
+            started=False
+        )
+
+
+    # ==============================================
+    # TRY TO START CAMERA
+    # ==============================================
+
+    started = (
+        camera.start()
+    )
+
+
+    # ==============================================
+    # START FAILED
+    # ==============================================
+
+    if not started:
+
+        error_message = (
+            camera.last_error
+            or
+            "Camera could not be started."
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message":
+                    "Camera failed to start",
+
+                "camera_id":
+                    camera_id,
+
+                "error":
+                    error_message
+            }
+        )
+
+
+    # ==============================================
+    # STARTED SUCCESSFULLY
+    # ==============================================
 
     return success_response(
 
-        (
-            "Camera started successfully"
-            if started
-            else
-            "Camera was already running"
-        ),
+        "Camera started successfully",
 
         camera=camera,
 
-        started=started
+        started=True
     )
-
 
 # ==================================================
 # STOP CAMERA
@@ -1922,6 +2824,18 @@ def delete_camera_zone(
 # ADD MODULES
 # ===================================
 
+# ==================================================
+# GET AVAILABLE AI MODULES
+#
+# Used by:
+# - AI Profile feature dropdown
+# - Camera module selection
+#
+# IMPORTANT:
+# "modules" is kept for backward compatibility.
+# "groups" is provided for grouped frontend display.
+# ==================================================
+
 @app.get(
     "/modules"
 )
@@ -1931,9 +2845,261 @@ def get_modules():
         Orchestrator()
     )
 
-    modules = sorted(
+    available_modules = (
         orchestrator.available_modules
     )
+
+
+    # ==============================================
+    # FRONTEND MODULE GROUPS
+    # ==============================================
+
+    module_groups = [
+
+        {
+            "key":
+                "worker_safety",
+
+            "display_name":
+                "Worker Safety",
+
+            "modules": [
+
+                {
+                    "key":
+                        "helmet",
+
+                    "display_name":
+                        "Helmet Detection"
+                },
+
+                {
+                    "key":
+                        "phone",
+
+                    "display_name":
+                        "Phone Detection"
+                },
+
+                {
+                    "key":
+                        "smoking",
+
+                    "display_name":
+                        "Smoking Detection"
+                },
+
+                {
+                    "key":
+                        "sleep",
+
+                    "display_name":
+                        "Sleep Detection"
+                },
+
+                {
+                    "key":
+                        "fall",
+
+                    "display_name":
+                        "Fall Detection"
+                }
+            ]
+        },
+
+
+        {
+            "key":
+                "fire_hazard",
+
+            "display_name":
+                "Fire & Hazard",
+
+            "modules": [
+
+                {
+                    "key":
+                        "fire",
+
+                    "display_name":
+                        "Fire Detection"
+                },
+
+                {
+                    "key":
+                        "smoke",
+
+                    "display_name":
+                        "Smoke Detection"
+                }
+            ]
+        },
+
+
+        {
+            "key":
+                "human_behaviour",
+
+            "display_name":
+                "Human Behaviour",
+
+            "modules": [
+
+                {
+                    "key":
+                        "pose",
+
+                    "display_name":
+                        "Pose Detection"
+                },
+
+                {
+                    "key":
+                        "running",
+
+                    "display_name":
+                        "Running Detection"
+                },
+
+                {
+                    "key":
+                        "idle",
+
+                    "display_name":
+                        "Idle Detection"
+                },
+
+                {
+                    "key":
+                        "activity",
+
+                    "display_name":
+                        "Activity Detection"
+                },
+
+                {
+                    "key":
+                        "group",
+
+                    "display_name":
+                        "Group Detection"
+                },
+
+                {
+                    "key":
+                        "loitering",
+
+                    "display_name":
+                        "Loitering Detection"
+                }
+            ]
+        },
+
+
+        {
+            "key":
+                "security",
+
+            "display_name":
+                "Security & Restricted Area",
+
+            "modules": [
+
+                {
+                    "key":
+                        "restricted",
+
+                    "display_name":
+                        "Restricted Area Detection"
+                },
+
+                {
+                    "key":
+                        "suspicious_theft",
+
+                    "display_name":
+                        "Suspicious Theft Detection"
+                }
+            ]
+        },
+
+
+        {
+            "key":
+                "operations",
+
+            "display_name":
+                "Operations",
+
+            "modules": [
+
+                {
+                    "key":
+                        "after_shift",
+
+                    "display_name":
+                        "After Shift Detection"
+                },
+
+                {
+                    "key":
+                        "vehicle",
+
+                    "display_name":
+                        "Vehicle Detection"
+                }
+            ]
+        }
+    ]
+
+
+    # ==============================================
+    # SAFETY FILTER
+    #
+    # Only expose modules that actually exist
+    # inside Orchestrator.
+    # ==============================================
+
+    groups = []
+
+    for group in module_groups:
+
+        valid_modules = [
+
+            module
+
+            for module in group["modules"]
+
+            if module["key"]
+            in available_modules
+        ]
+
+        if valid_modules:
+
+            groups.append({
+
+                "key":
+                    group["key"],
+
+                "display_name":
+                    group["display_name"],
+
+                "modules":
+                    valid_modules
+            })
+
+
+    # ==============================================
+    # EXISTING FLAT LIST
+    #
+    # Keep this so old frontend/backend integration
+    # does not break.
+    # ==============================================
+
+    modules = sorted(
+        available_modules
+    )
+
 
     return {
 
@@ -1947,7 +3113,10 @@ def get_modules():
             len(modules),
 
         "modules":
-            modules
+            modules,
+
+        "groups":
+            groups
     }
 # ==================================================
 # UPDATE MODULES
@@ -2104,28 +3273,62 @@ def get_camera_brands():
 # VIDEO STREAM GENERATOR
 # ==================================================
 
+# ==================================================
+# VIDEO STREAM GENERATOR
+#
+# IMPORTANT:
+# The MJPEG stream must stop immediately when
+# the camera runtime is stopped.
+# ==================================================
+
 def generate_camera_stream(
     camera
 ):
 
     while True:
 
+        # ==========================================
+        # CAMERA STOPPED
+        #
+        # Stop the HTTP stream immediately.
+        # ==========================================
+
+        if not camera.running:
+
+            print(
+                f"CAMERA STREAM STOPPED -> "
+                f"{camera.camera_id}"
+            )
+
+            break
+
+
+        # ==========================================
+        # GET LATEST FRAME
+        # ==========================================
+
         frame = (
             camera
             .get_latest_frame()
         )
 
+
+        # ==========================================
+        # FRAME NOT AVAILABLE YET
+        # ==========================================
+
         if frame is None:
-
-            if not camera.running:
-
-                break
 
             time.sleep(
                 0.05
             )
 
             continue
+
+
+        # ==========================================
+        # ENCODE FRAME
+        # ==========================================
 
         success, encoded_frame = (
             cv2.imencode(
@@ -2141,6 +3344,7 @@ def generate_camera_stream(
             )
         )
 
+
         if not success:
 
             time.sleep(
@@ -2149,10 +3353,16 @@ def generate_camera_stream(
 
             continue
 
+
         frame_bytes = (
             encoded_frame
             .tobytes()
         )
+
+
+        # ==========================================
+        # SEND FRAME
+        # ==========================================
 
         yield (
 
@@ -2169,6 +3379,7 @@ def generate_camera_stream(
 
             b"\r\n"
         )
+
 
         time.sleep(
             0.03
